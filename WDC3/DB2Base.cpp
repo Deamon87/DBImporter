@@ -142,7 +142,26 @@ int DB2Base::readRecord(int id, bool useRelationMappin, int minFieldNum, int fie
 std::string DB2Base::readString(unsigned char* &fieldPointer, int sectionIndex) {
     std::string result = "";
     if ((header->flags & 1) == 0) {
-        uint32_t offset = *((uint32_t *)fieldPointer) + (fieldPointer - sections[sectionIndex].string_data);
+//        if ( header->section_count )
+//        {
+//            do
+//            {
+//                if ( v13 == (_DWORD)v8 )
+//                    break;
+//                v17 = v13++;
+//                v18 = 9 * v17;
+//                v19 = v11->m_sections;
+//                v16 += *(&v19->string_table_size + v18);
+//                v7 += v14 * *(&v19->record_count + v18);
+//            }
+//            while ( v13 < v15 );
+//        }
+
+        int32_t offset = fieldPointer - sections[sectionIndex].records[0].data  + (*((uint32_t *)fieldPointer)) - header->record_count*header->record_size ;
+        for (int i = 0; i < sectionIndex; i++) {
+            offset -= section_headers[i].string_table_size;
+        }
+
         result = std::string((char *)&sections[sectionIndex].string_data[offset]);
     } else {
         result = std::string((char *)fieldPointer);

@@ -20,7 +20,9 @@ int main() {
     char *sErrMsg = "";
     sqlite3_exec(db.getHandle(), "PRAGMA synchronous = OFF", NULL, NULL, &sErrMsg);
 
-    for (const auto& entry : fs::directory_iterator("../WoWDBDefs/definitions/")) {
+    std::string definitionsPath = "../3rdparty/WoWDBDefs/definitions/";
+
+    for (const auto& entry : fs::directory_iterator(definitionsPath)) {
         const auto filenameStr = entry.path().filename().string();
         if (entry.status().type() == fs::file_type::regular) {
 
@@ -41,7 +43,7 @@ int main() {
 
 
 
-            DBDFile dbdFile("../WoWDBDefs/definitions/"+dbdFileName+".dbd");
+            DBDFile dbdFile(definitionsPath+dbdFileName+".dbd");
 
             DBDFile::BuildConfig *buildConfig_;
 
