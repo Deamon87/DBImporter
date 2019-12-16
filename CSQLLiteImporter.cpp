@@ -144,9 +144,10 @@ void CSQLLiteImporter::processWDC3(std::string tableName, HFileContent fileConte
         }
     }
     copyStatement = copyStatement.substr(0, copyStatement.size()-2);
-    copyStatement += "where " + fieldNames[IdIndex] +" = ?";
+    copyStatement += " FROM "+tableName;
+    copyStatement += " where " + fieldNames[IdIndex] +" = ?";
 
-    SQLite::Statement   copyQuery(m_sqliteDatabase,statement);
+    SQLite::Statement   copyQuery(m_sqliteDatabase, copyStatement);
 
     for (int i = 0; i < db2Base.getRecordCount(); i++) {
         std::string newRec = "";
@@ -170,7 +171,19 @@ void CSQLLiteImporter::processWDC3(std::string tableName, HFileContent fileConte
             transaction.commit();
         }
     }
-    //Copy
+    //Copy records
+    {
+        SQLite::Transaction transaction(m_sqliteDatabase);
+        db2Base.iterateOverCopyRecords([&copyQuery](int oldId, int newId) -> void {
+            copyQuery.reset();
+
+            copyQuery.bind(1, std::to_string(newId));
+            copyQuery.bind(2, std::to_string(oldId));
+
+            copyQuery.exec();
+        });
+        transaction.commit();
+    }
 }
 
 bool CSQLLiteImporter::readWDC3Record(int i, std::vector<std::string> &fieldValues, WDC3::DB2Base &db2Base,

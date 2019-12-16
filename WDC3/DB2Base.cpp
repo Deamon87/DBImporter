@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <algorithm>
 #include <iostream>
+#include <assert.h>
 #include "DB2Base.h"
 
 using namespace WDC3;
@@ -24,6 +25,7 @@ void DB2Base::process(HFileContent db2File, const std::string &fileName) {
     readValues(field_info, fieldInfoLength);
 
 
+    int palleteDataRead = 0;
     palleteDataArray.resize(header->field_count);
     for (int i = 0; i < header->field_count; i++) {
         if ((field_info[i].storage_type == field_compression_bitpacked_indexed) ||
@@ -33,10 +35,12 @@ void DB2Base::process(HFileContent db2File, const std::string &fileName) {
                 uint32_t value;
                 readValue(value);
                 palleteDataArray[i].push_back(value);
+                palleteDataRead++;
             }
         }
     }
 
+    assert(palleteDataRead*4 == header->pallet_data_size);
 
 //    readValues(pallet_data, header->pallet_data_size);
     //Form hashtable for column
@@ -63,7 +67,7 @@ void DB2Base::process(HFileContent db2File, const std::string &fileName) {
         sections.resize(sections.size()+1);
         section &section = sections[sections.size()-1];
 
-        if (itemSectionHeader.tact_key_hash != 0) break;
+//        if (itemSectionHeader.tact_key_hash != 0) break;
 
         if ((header->flags & 1) == 0) {
             // Normal records
@@ -317,35 +321,33 @@ bool DB2Base::readRecordByIndex(int index, int minFieldNum, int fieldsToRead,
                     unsigned int bitOffset = fieldInfo.field_compression_bitpacked_indexed.bitpacking_offset_bits;
                     unsigned int bitesToRead = fieldInfo.field_compression_bitpacked_indexed.bitpacking_size_bits;
 
+                    bitOffset = fieldInfo.field_offset_bits;
+
                     //Zero the buffer
                     for (int j = 0; j < 128; j++) buffer[j] = 0;
 
                     extractBits(recordPointer, &buffer[0], bitOffset, bitesToRead);
                     int palleteIndex = *(uint32_t *)&buffer[0];
 
-//                    //Todo: hackfix
-//                    int properIndexForPalleteData = 0;
-//                    for (int j = 0; j < i; j++) {
-//                        auto const &fieldInfo = field_info[j];
-//                        if ((fieldInfo.storage_type == field_compression_bitpacked_indexed) ||
-//                            (fieldInfo.storage_type == field_compression_bitpacked_indexed_array)) {
-//                            properIndexForPalleteData += fieldInfo.additional_data_size;
-//                        }
-//                    }
-
-
-
 //                    uint8_t *ptr = reinterpret_cast<uint8_t *>(&pallet_data[properIndexForPalleteData + (palleteIndex*4)]);
                     if (fieldInfo.storage_type == field_compression_bitpacked_indexed_array) {
                         int array_count = fieldInfo.field_compression_bitpacked_indexed_array.array_count;
                         for (int j = 0; j < array_count; j++) {
-                            uint32_t value = palleteDataArray[i][palleteIndex*array_count+j];
+                            int properPalleteIndex = (palleteIndex*array_count)+j;
+                            if (properPalleteIndex >= palleteDataArray[i].size()) {
+                                properPalleteIndex = 0; // TODO: HACK
+                            }
+                            uint32_t value = palleteDataArray[i][properPalleteIndex];
                             uint8_t *ptr = (uint8_t *) &value;
 
                             callback(recordId, i, j, sectionIndex, ptr, 4);
                         }
                     } else {
-                        uint8_t *ptr = reinterpret_cast<uint8_t *>(&palleteDataArray[i][palleteIndex]);
+                        int properPalleteIndex = palleteIndex;
+                        if (properPalleteIndex >= palleteDataArray[i].size()) {
+                            properPalleteIndex = 0; // TODO: HACK
+                        }
+                        uint8_t *ptr = reinterpret_cast<uint8_t *>(&palleteDataArray[i][properPalleteIndex]);
 
                         callback(recordId, i, -1, sectionIndex, ptr, 4);
                     }
@@ -363,4 +365,14 @@ bool DB2Base::readRecordByIndex(int index, int minFieldNum, int fieldsToRead,
 
 
     return true;
+}
+
+int DB2Base::iterateOverCopyRecords(std::function<void(int oldRecId, int newRecId)> iterateFunction) {
+    for (int i = 0; i < sections.size(); i++) {
+        if (section_headers[i].tact_key_hash != 0) continue;
+
+        for (int j = 0; j < section_headers[i].copy_table_count; j++) {
+            iterateFunction(sections[i].copy_table[j].id_of_copied_row,sections[i].copy_table[j].id_of_new_row);
+        }
+    }
 }

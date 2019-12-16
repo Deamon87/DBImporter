@@ -194,6 +194,8 @@ namespace WDC3 {
         int getIdForRecord(int recordIndex) { return sections[0].id_list[recordIndex]; };
 
         std::string readString(unsigned char* &fieldPointer, int sectionIndex);
+        int iterateOverCopyRecords(std::function<void(int oldRecId, int newRecId)> iterateFunction);
+
 
     private:
         bool m_loaded = false;
