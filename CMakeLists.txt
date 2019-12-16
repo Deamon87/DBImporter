@@ -12,12 +12,13 @@ include_directories(
 add_executable(DBImporter main.cpp DBDFile.cpp DBDFile.h
         WDC2/DB2Base.cpp
         WDC3/DB2Base.cpp
-        )
+        CSQLLiteImporter.cpp CSQLLiteImporter.h)
 
 target_link_libraries(DBImporter
         SQLiteCpp
         sqlite3
         pthread
         stdc++fs
-        ssp
+        #ssp
+        dl
         )
