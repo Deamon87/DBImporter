@@ -36,7 +36,7 @@ int main() {
                 continue;
             }
 
-//            dbdFileName = "Wmoareatable";
+//            dbdFileName = "ItemDisplayInfo";
 
             std::string tableName = dbdFileName;
 
@@ -48,6 +48,7 @@ int main() {
             std::string pathToDB2 = "../db2Files/"+ db2Name+".db2";
 
             csqlLiteImporter.addTable(tableName, pathToDB2, definitionsPath+dbdFileName+".dbd");
+//            break;
         }
     }
 

@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <iostream>
 #include <assert.h>
+#include <cmath>
 #include "DB2Base.h"
 
 using namespace WDC3;
@@ -69,6 +70,8 @@ void DB2Base::process(HFileContent db2File, const std::string &fileName) {
 
 //        if (itemSectionHeader.tact_key_hash != 0) break;
 
+        assert(itemSectionHeader.file_offset == currentOffset);
+
         if ((header->flags & 1) == 0) {
             // Normal records
 
@@ -92,6 +95,8 @@ void DB2Base::process(HFileContent db2File, const std::string &fileName) {
             readValues(section.copy_table, itemSectionHeader.copy_table_count);
         }
         readValues(section.offset_map, itemSectionHeader.offset_map_id_count);
+
+        auto offsetBeforRelationshipData = currentOffset;
         if (itemSectionHeader.relationship_data_size > 0) {
             // In some tables, this relationship mapping replaced columns that were used
             // only as a lookup, such as the SpellID in SpellX* tables.
@@ -100,6 +105,10 @@ void DB2Base::process(HFileContent db2File, const std::string &fileName) {
             readValue(section.relationship_map.max_id);
             readValues(section.relationship_map.entries, section.relationship_map.num_entries);
         }
+        if (offsetBeforRelationshipData + itemSectionHeader.relationship_data_size != currentOffset) {
+            currentOffset = offsetBeforRelationshipData + itemSectionHeader.relationship_data_size;
+        }
+
         readValues(section.offset_map_id_list, itemSectionHeader.offset_map_id_count);
     }
 
@@ -175,6 +184,26 @@ std::string DB2Base::readString(unsigned char* &fieldPointer, int sectionIndex) 
     return result;
 }
 
+
+int get_bit(unsigned char *data, unsigned bitoffset) // returns the n-th bit
+{
+    int c = (int)(data[bitoffset >> 3]); // X>>3 is X/8
+    int bitmask = 1 << (bitoffset & 7);  // X&7 is X%8
+    return ((c & bitmask)!=0) ? 1 : 0;
+}
+
+unsigned int get_bits(unsigned char* data, unsigned bitOffset, unsigned numBits)
+{
+    unsigned int bits = 0;
+    int bitPos = 0;
+    for (int currentbit = bitOffset; currentbit < bitOffset + numBits; currentbit++)
+    {
+        bits = bits | (get_bit(data, currentbit) << bitPos++);
+    }
+    return bits;
+}
+
+
 void extractBits(unsigned char *inputBuffer, unsigned char *outputBuffer, int bitOffset, int bitLength) {
     unsigned int byteOffset = (bitOffset) >> 3;
     bitOffset = bitOffset & 7;
@@ -189,7 +218,7 @@ void extractBits(unsigned char *inputBuffer, unsigned char *outputBuffer, int bi
         uint8_t tailByte = 0;
 
         if (bitLength > 8) {
-            for (int j = 0; j < totalBytesToRead - 1; j++) {
+            for (int j = 0; j < (bitLength >> 3); j++) {
                 headByte = inputBuffer[byteOffset + j] & headMask;
                 tailByte = inputBuffer[byteOffset + j + 1] & (tailMask);
 
@@ -285,7 +314,7 @@ bool DB2Base::readRecordByIndex(int index, int minFieldNum, int fieldsToRead,
                     //Zero the buffer
                     for (int j = 0; j < 128; j++) buffer[j] = 0;
 
-                    extractBits(recordPointer, &buffer[0], bitOffset, bitesToRead);
+                    *((uint32_t*) &buffer[0]) = get_bits(recordPointer, bitOffset, bitesToRead);
 
                     if (fieldInfo.storage_type == field_compression_bitpacked_signed) {
                         uint32_t signExtension = 0xFFFFFFFF << (bitesToRead);
@@ -326,7 +355,7 @@ bool DB2Base::readRecordByIndex(int index, int minFieldNum, int fieldsToRead,
                     //Zero the buffer
                     for (int j = 0; j < 128; j++) buffer[j] = 0;
 
-                    extractBits(recordPointer, &buffer[0], bitOffset, bitesToRead);
+                    *((uint32_t*) &buffer[0]) = get_bits(recordPointer, bitOffset, bitesToRead);
                     int palleteIndex = *(uint32_t *)&buffer[0];
 
 //                    uint8_t *ptr = reinterpret_cast<uint8_t *>(&pallet_data[properIndexForPalleteData + (palleteIndex*4)]);
