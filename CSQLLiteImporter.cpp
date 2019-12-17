@@ -18,12 +18,12 @@ CSQLLiteImporter::CSQLLiteImporter(const std::string &databaseFile) : m_sqliteDa
 
 }
 
-void CSQLLiteImporter::addTable(std::string &tableName, std::string db2File, std::string dbdFile) {
+void CSQLLiteImporter::addTable(std::string &tableName, std::string version, std::string db2File, std::string dbdFile) {
     std::shared_ptr<DBDFile> m_dbdFile = std::make_shared<DBDFile>(dbdFile);
 
     DBDFile::BuildConfig *buildConfig_;
 
-    bool configFound = m_dbdFile->findBuildConfig("8.3.0.32414", "", buildConfig_);
+    bool configFound = m_dbdFile->findBuildConfig(version, "", buildConfig_);
     if (!configFound) {
         std::cout << "Could not find config for file " + dbdFile << std::endl;
         return;

@@ -16,7 +16,7 @@ class CSQLLiteImporter {
 public:
     CSQLLiteImporter(const std::string &databaseFile);
 
-    void addTable(std::string &tableName, std::string db2File, std::string dbdFile);
+    void addTable(std::string &tableName, std::string version, std::string db2File, std::string dbdFile);
 
 private:
     SQLite::Database m_sqliteDatabase;
