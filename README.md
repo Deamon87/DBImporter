@@ -12,3 +12,4 @@
    <version>            Build and version of db2 files. For example: 8.3.0.32414
    <sqliteFileName>     File name for sqlite database. File will be created if it doesnt exist
    ```
+You can find database definitions in https://github.com/wowdev/WoWDBDefs repository
