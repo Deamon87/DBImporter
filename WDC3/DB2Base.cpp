@@ -27,16 +27,18 @@ void DB2Base::process(HFileContent db2File, const std::string &fileName) {
 
 
     int palleteDataRead = 0;
-    palleteDataArray.resize(header->field_count);
-    for (int i = 0; i < header->field_count; i++) {
-        if ((field_info[i].storage_type == field_compression_bitpacked_indexed) ||
-            (field_info[i].storage_type == field_compression_bitpacked_indexed_array)) {
+    if (header->pallet_data_size > 0) {
+        palleteDataArray.resize(header->field_count);
+        for (int i = 0; i < header->field_count; i++) {
+            if ((field_info[i].storage_type == field_compression_bitpacked_indexed) ||
+                (field_info[i].storage_type == field_compression_bitpacked_indexed_array)) {
 
-            for (int j = 0; j < field_info[i].additional_data_size/4; j++) {
-                uint32_t value;
-                readValue(value);
-                palleteDataArray[i].push_back(value);
-                palleteDataRead++;
+                for (int j = 0; j < field_info[i].additional_data_size / 4; j++) {
+                    uint32_t value;
+                    readValue(value);
+                    palleteDataArray[i].push_back(value);
+                    palleteDataRead++;
+                }
             }
         }
     }
@@ -46,21 +48,22 @@ void DB2Base::process(HFileContent db2File, const std::string &fileName) {
 //    readValues(pallet_data, header->pallet_data_size);
     //Form hashtable for column
 
-    commonDataHashMap.resize(header->field_count);
-    for (int i = 0; i < header->field_count; i++) {
-        if (field_info[i].storage_type == field_compression::field_compression_common_data)
-        {
-            int id;
-            uint32_t value;
-            for (int j = 0; j < field_info[i].additional_data_size / 8; j++) {
-                readValue(id);
-                readValue(value);
+    if (header->common_data_size > 0) {
+        commonDataHashMap.resize(header->field_count);
+        for (int i = 0; i < header->field_count; i++) {
+            if (field_info[i].storage_type == field_compression::field_compression_common_data) {
+                int id;
+                uint32_t value;
+                for (int j = 0; j < field_info[i].additional_data_size / 8; j++) {
+                    readValue(id);
+                    readValue(value);
 
-                commonDataHashMap[i][id] = value;
+                    commonDataHashMap[i][id] = value;
+                }
             }
         }
     }
-//    readValues(common_data, header->common_data_size);
+//    readValues(common_data, );
 
     //Read section
     for (int i = 0; i < header->section_count; i++) {
@@ -90,10 +93,17 @@ void DB2Base::process(HFileContent db2File, const std::string &fileName) {
             readValues(section.variable_record_data, itemSectionHeader.offset_records_end - itemSectionHeader.file_offset);
         }
 
+        if (itemSectionHeader.offset_records_end > 0) {
+            assert(itemSectionHeader.offset_records_end == currentOffset);
+        }
         readValues(section.id_list, itemSectionHeader.id_list_size / 4);
         if (itemSectionHeader.copy_table_count > 0) {
             readValues(section.copy_table, itemSectionHeader.copy_table_count);
         }
+
+        if (header->table_hash == 145293629)
+            currentOffset+=itemSectionHeader.offset_map_id_count*4;
+
         readValues(section.offset_map, itemSectionHeader.offset_map_id_count);
 
         auto offsetBeforRelationshipData = currentOffset;
@@ -282,6 +292,10 @@ bool DB2Base::readRecordByIndex(int index, int minFieldNum, int fieldsToRead,
         recordPointer = sectionDef.records[index].data;
     } else {
         recordId = sectionDef.offset_map_id_list[index];
+//        if (sectionDef.offset_map[index].size == 0) {
+//            return false;
+//        }
+
         recordPointer = sectionDef.variable_record_data+sectionDef.offset_map[index].offset - sectionHeader.file_offset;
 //        sectionDef.variable_record_data
     }
@@ -388,6 +402,9 @@ bool DB2Base::readRecordByIndex(int index, int minFieldNum, int fieldsToRead,
             //variable data
             auto &fieldInfo = field_info[i];
             int bytesToRead = fieldInfo.field_size_bits >> 3;
+
+
+
             callback(recordId, i, -1, sectionIndex, fieldDataPointer, bytesToRead);
         }
     }

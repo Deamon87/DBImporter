@@ -54,7 +54,8 @@ int main(int argc, char **argv) {
                 continue;
             }
 
-//            dbdFileName = "ItemDisplayInfo";
+//            dbdFileName = "UnitTestSparse";
+//            version = "8.0.1.26231";
 
             std::string tableName = dbdFileName;
 
