@@ -190,9 +190,9 @@ bool CSQLLiteImporter::readWDC3Record(int i, std::vector<std::string> &fieldValu
                                       std::shared_ptr<DBDFile> &m_dbdFile, DBDFile::BuildConfig &buildConfig,
                                       int InlineIdIndex, const std::vector<int> &columnDefFieldIndexToFieldIndex) {
 
-
+    int recordIndex = i;
     bool recordRead = db2Base.readRecordByIndex(i, 0, -1,
-        [&buildConfig, &m_dbdFile, &db2Base, InlineIdIndex, &fieldValues, columnDefFieldIndexToFieldIndex]
+        [&buildConfig, &m_dbdFile, &db2Base, InlineIdIndex, &fieldValues, columnDefFieldIndexToFieldIndex, recordIndex]
         (uint32_t &id, int fieldNum, int subIndex, int sectionIndex, unsigned char *&data, size_t length) {
             auto *fieldDef = &buildConfig.columns[0];
             fieldDef = nullptr;
@@ -254,13 +254,19 @@ bool CSQLLiteImporter::readWDC3Record(int i, std::vector<std::string> &fieldValu
                     case FieldType::STRING:
                         //                            int offset = *(uint32_t *) data;
                         //                            offset += stringOffset;
-                        fieldValues[fieldValuesIndex++] = (db2Base.readString(data, sectionIndex));
+                        fieldValues[fieldValuesIndex++] = (db2Base.readString(data, sectionIndex, j));
                         break;
                 }
 
             }
         });
 
+    for (int j = 0; j < buildConfig.columns.size(); j++) {
+        auto &columnDef = buildConfig.columns[j];
+        if (columnDef.isRelation && columnDef.isNonInline) {
+            fieldValues[j] = std::to_string(db2Base.getRelationRecord(recordIndex));
+        }
+    }
 
     return recordRead;
 }

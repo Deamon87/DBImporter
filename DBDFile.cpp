@@ -171,6 +171,9 @@ void DBDFile::parseColumnBuildDefLine(std::string &line, BuildConfig &buildConfi
         if (prefix.find("noninline") != std::string::npos) {
             buildDef.isNonInline = true;
         }
+        if (prefix.find("relation") != std::string::npos) {
+            buildDef.isRelation = true;
+        }
 
         nameStart = prefixEnd+1;
     }
