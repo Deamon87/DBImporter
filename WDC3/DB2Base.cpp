@@ -11,6 +11,15 @@
 
 using namespace WDC3;
 
+bool checkDataIfNonZero(unsigned char *ptr, int length) {
+    for (int i = 0; i < length; i++) {
+        if (ptr[i] != 0)
+            return false;
+    }
+
+    return true;
+}
+
 void DB2Base::process(HFileContent db2File, const std::string &fileName) {
     this->db2File = db2File;
     fileData = &(*this->db2File.get())[0];
@@ -83,6 +92,10 @@ void DB2Base::process(HFileContent db2File, const std::string &fileName) {
                 readValues(recordData.data, header->record_size);
 
                 section.records.push_back(recordData);
+            }
+
+            if (section.records.size() > 0) {
+                section.isEncoded = checkDataIfNonZero(section.records[0].data,itemSectionHeader.record_count* header->record_size);
             }
 
             readValues(section.string_data, itemSectionHeader.string_table_size);
@@ -165,27 +178,23 @@ int DB2Base::readRecord(int id, bool useRelationMappin, int minFieldNum, int fie
 std::string DB2Base::readString(unsigned char* &fieldPointer, int sectionIndex) {
     std::string result = "";
     if ((header->flags & 1) == 0) {
-//        if ( header->section_count )
-//        {
-//            do
-//            {
-//                if ( v13 == (_DWORD)v8 )
-//                    break;
-//                v17 = v13++;
-//                v18 = 9 * v17;
-//                v19 = v11->m_sections;
-//                v16 += *(&v19->string_table_size + v18);
-//                v7 += v14 * *(&v19->record_count + v18);
-//            }
-//            while ( v13 < v15 );
-//        }
+        int sizeToStringData = header->record_count*header->record_size;
+        int32_t offset = fieldPointer + (*((uint32_t *)fieldPointer)) - sections[sectionIndex].records[0].data;
 
-        int32_t offset = fieldPointer - sections[sectionIndex].records[0].data  + (*((uint32_t *)fieldPointer)) - header->record_count*header->record_size ;
+        //Get to the border of record data
         for (int i = 0; i < sectionIndex; i++) {
-            offset -= section_headers[i].string_table_size;
+            sizeToStringData -= section_headers[i].record_count * header->record_size;
+        }
+        offset -= sizeToStringData;
+
+        //Find section that is referenced by this offset
+        int sectionIdforStr = 0;
+        while (sectionIdforStr < sectionIndex && offset >= section_headers[sectionIdforStr].string_table_size) {
+            offset -= section_headers[sectionIdforStr].string_table_size;
+            sectionIdforStr++;
         }
 
-        result = std::string((char *)&sections[sectionIndex].string_data[offset]);
+        result = std::string((char *)&sections[sectionIdforStr].string_data[offset]);
     } else {
         result = std::string((char *)fieldPointer);
         fieldPointer+=result.length()+1;
@@ -278,7 +287,7 @@ bool DB2Base::readRecordByIndex(int index, int minFieldNum, int fieldsToRead,
     auto &sectionDef = sections[sectionIndex];
     auto &sectionHeader = section_headers[sectionIndex];
     //
-    if (sectionHeader.tact_key_hash != 0) return false;
+    if (sectionDef.isEncoded) return false;
 
     int numOfFieldToRead = fieldsToRead >=0 ? fieldsToRead : header->field_count;
     uint32_t recordId = 0;
@@ -413,12 +422,15 @@ bool DB2Base::readRecordByIndex(int index, int minFieldNum, int fieldsToRead,
     return true;
 }
 
-int DB2Base::iterateOverCopyRecords(std::function<void(int oldRecId, int newRecId)> iterateFunction) {
+int DB2Base::iterateOverCopyRecords(const std::function<void(int oldRecId, int newRecId)>& iterateFunction) {
     for (int i = 0; i < sections.size(); i++) {
-        if (section_headers[i].tact_key_hash != 0) continue;
+        if (sections[i].isEncoded) return false;
+//        if (section_headers[i].tact_key_hash != 0) continue;
 
+        auto const &section = sections[i];
         for (int j = 0; j < section_headers[i].copy_table_count; j++) {
             iterateFunction(sections[i].copy_table[j].id_of_copied_row,sections[i].copy_table[j].id_of_new_row);
         }
     }
+    return 0;
 }

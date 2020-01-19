@@ -2,7 +2,7 @@
 #include <fstream>
 #include <vector>
 #include <locale>
-#include <experimental/filesystem>
+#include <filesystem>
 
 #include "DBDFile.h"
 #include "WDC2/DB2Base.h"
@@ -11,9 +11,10 @@
 #include <SQLiteCpp/SQLiteCpp.h>
 #include <sqlite3.h>
 
+
 #include "CSQLLiteImporter.h"
 
-namespace fs = std::experimental::filesystem;
+namespace fs = std::filesystem;
 
 void printUsage() {
     std::cout << "Usage: DBImporter -x <pathToDBDFiles> <pathToDBFiles> <version> <sqliteFileName>" << std::endl;
@@ -26,8 +27,56 @@ void printUsage() {
     std::cout << "  <sqliteFileName>     File name for sqlite database. File will be created if it doesnt exist" << std::endl;
 }
 
+extern "C" void my_function_to_handle_aborts(int signal_number)
+{
+    /*Your code goes here. You can output debugging info.
+      If you return from this function, and it was called
+      because abort() was called, your program will exit or crash anyway
+      (with a dialog box on Windows).
+     */
+
+    std::cout << "HELLO" << std::endl;
+    std::cout << "HELLO" << std::endl;
+}
+
+
+#ifdef _WIN32
+#include <windows.h>
+void beforeCrash() {
+    std::cout << "HELLO" << std::endl;
+    //__asm("int3");
+}
+
+static LONG WINAPI
+windows_exception_handler(EXCEPTION_POINTERS
+* ExceptionInfo)
+{
+switch(ExceptionInfo->ExceptionRecord->ExceptionCode)
+{
+case EXCEPTION_ACCESS_VIOLATION:
+fputs("Error: EXCEPTION_ACCESS_VIOLATION\n", stderr);
+break;
+case EXCEPTION_ARRAY_BOUNDS_EXCEEDED:
+fputs("Error: EXCEPTION_ARRAY_BOUNDS_EXCEEDED\n", stderr);
+break;
+case EXCEPTION_BREAKPOINT:
+fputs("Error: EXCEPTION_BREAKPOINT\n", stderr);
+break;
+}
+return 0;
+}
+#endif
 
 int main(int argc, char **argv) {
+
+#ifdef _WIN32
+    SetUnhandledExceptionFilter(windows_exception_handler);
+    const bool SET_TERMINATE = std::set_terminate(beforeCrash);
+    const bool SET_TERMINATE_UNEXP = std::set_unexpected(beforeCrash);
+#endif
+    signal(SIGABRT, &my_function_to_handle_aborts);
+
+
     if (argc < 6 || std::string(argv[1]) != "-x") {
         printUsage();
         return 1;

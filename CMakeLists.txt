@@ -19,6 +19,6 @@ target_link_libraries(DBImporter
         sqlite3
         pthread
         stdc++fs
-        #ssp
-        dl
+        ssp
+#        dl
         )

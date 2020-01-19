@@ -206,6 +206,8 @@ bool CSQLLiteImporter::readWDC3Record(int i, std::vector<std::string> &fieldValu
             if (fieldDef->isId) {
                 id = *(uint32_t *) data;
             }
+
+
             if (fieldNum == 0 && InlineIdIndex > -1) {
                 //Id is pushed from internals of DB2Base
                 fieldValues[InlineIdIndex] = std::to_string(id);

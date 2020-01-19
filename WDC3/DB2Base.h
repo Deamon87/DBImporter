@@ -174,6 +174,8 @@ namespace WDC3 {
 
         relationship_mapping relationship_map;
         uint32_t *offset_map_id_list;
+
+        bool isEncoded = false;
     };
 
     class DB2Base {
@@ -194,7 +196,7 @@ namespace WDC3 {
         int getIdForRecord(int recordIndex) { return sections[0].id_list[recordIndex]; };
 
         std::string readString(unsigned char* &fieldPointer, int sectionIndex);
-        int iterateOverCopyRecords(std::function<void(int oldRecId, int newRecId)> iterateFunction);
+        int iterateOverCopyRecords(const std::function<void(int oldRecId, int newRecId)> &iterateFunction);
 
 
     private:
