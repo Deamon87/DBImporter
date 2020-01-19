@@ -176,6 +176,8 @@ namespace WDC3 {
         uint32_t *offset_map_id_list;
 
         bool isEncoded = false;
+
+        std::unordered_map<int, int> perRecordIndexRelation = {};
     };
 
     class DB2Base {
@@ -184,16 +186,14 @@ namespace WDC3 {
 
         bool getIsLoaded() { return m_loaded; };
 
-        int readRecord(int id, bool useRelationMappin, int minFieldNum, int fieldsToRead,
-                       std::function<void(uint32_t &recordId, int fieldNum, int subIndex, int stringOffset, unsigned char *data, size_t length)> callback);
-
         bool readRecordByIndex(int index, int minFieldNum, int fieldsToRead,
                                std::function<void(uint32_t &recordId, int fieldNum, int subIndex, int sectionNum, unsigned char *&data, size_t length)> callback);
 
         int getRecordCount() { return header->record_count; };
         int isEmbeddedType() { return (header->flags & 1) != 0; };
 
-        int getIdForRecord(int recordIndex) { return sections[0].id_list[recordIndex]; };
+        int getRelationRecord(int recordIndex);
+        int getRelationRecord(int recordIndexInSection, int sectionIndex);
 
         std::string readString(unsigned char* &fieldPointer, int sectionIndex);
         int iterateOverCopyRecords(const std::function<void(int oldRecId, int newRecId)> &iterateFunction);

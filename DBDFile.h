@@ -31,6 +31,7 @@ private:
     struct ColumnBuildDef {
         bool isId = false;
         bool isNonInline = false;
+        bool isRelation = false;
         bool isSigned = false;
         int bitSize = 0;
         int arraySize = 0;

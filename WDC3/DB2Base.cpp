@@ -150,6 +150,12 @@ void DB2Base::process(HFileContent db2File, const std::string &fileName) {
             readValue(section.relationship_map.min_id);
             readValue(section.relationship_map.max_id);
             readValues(section.relationship_map.entries, section.relationship_map.num_entries);
+
+            for (int relationInd = 0; relationInd < section.relationship_map.num_entries; relationInd++) {
+                const auto &entry = section.relationship_map.entries[relationInd];
+                section.perRecordIndexRelation[entry.record_index] = entry.foreign_id;
+            }
+
         }
         if (offsetBeforRelationshipData + itemSectionHeader.relationship_data_size != currentOffset) {
             currentOffset = offsetBeforRelationshipData + itemSectionHeader.relationship_data_size;
@@ -161,42 +167,6 @@ void DB2Base::process(HFileContent db2File, const std::string &fileName) {
     m_loaded = true;
 }
 
-//Returns index
-int DB2Base::readRecord(int id, bool useRelationMappin, int minFieldNum, int fieldsToRead,
-        std::function<void(uint32_t &recordId, int fieldNum, int subIndex, int stringOffset,unsigned char *data, size_t length)> callback) {
-    //1. Get id offset
-    int idDiff = id - header->min_id;
-
-    //2. Find index
-    int pos;
-    auto &sectionDef = sections[0];
-    if (useRelationMappin) {
-        //2.1 Find index using relation mapping
-        relationship_entry entry;
-        entry.foreign_id = id;
-        entry.record_index = 0;
-        relationship_entry *start = sections[0].relationship_map.entries; //hack
-        relationship_entry *end = sections[0].relationship_map.entries + (sections[0].relationship_map.num_entries - 1);
-        relationship_entry *indx = std::find_if(start, end, [&id](relationship_entry &entry) -> bool {
-            return entry.foreign_id == id;
-        });
-        pos = indx - sections[0].relationship_map.entries;
-        if (indx == end || indx->foreign_id != id)
-            return false;
-    } else {
-        //2.2 Find index in id_list
-
-        uint32_t *end = sections[0].id_list + (section_headers->id_list_size / 4);
-        uint32_t *indx = std::lower_bound(sections[0].id_list, end, id);
-        pos = indx - sections[0].id_list;
-        if (indx == end || *indx != id)
-            return -1;
-    }
-    //3. Read the record
-    readRecordByIndex(pos, minFieldNum, fieldsToRead, callback);
-
-    return pos;
-}
 
 std::string DB2Base::readString(unsigned char* &fieldPointer, int sectionIndex) {
     std::string result = "";
@@ -468,4 +438,16 @@ int DB2Base::iterateOverCopyRecords(const std::function<void(int oldRecId, int n
         }
     }
     return 0;
+}
+int DB2Base::getRelationRecord(int recordIndex) {
+    int sectionIndex = 0;
+    while (recordIndex >= section_headers[sectionIndex].record_count) {
+        recordIndex -= section_headers[sectionIndex].record_count;
+        sectionIndex++;
+    }
+
+    return getRelationRecord(recordIndex, sectionIndex);
+}
+int DB2Base::getRelationRecord(int recordIndexInSection, int sectionIndex) {
+    return sections[sectionIndex].perRecordIndexRelation[recordIndexInSection];
 }
