@@ -202,9 +202,14 @@ namespace WDC3 {
     private:
         bool m_loaded = false;
         HFileContent db2File;
+        std::string db2FileName;
         unsigned char *fileData;
         int currentOffset;
         int bytesRead;
+
+        //Debug:
+        int currentRecord = 0;
+        int currentField = 0;
 
         template<typename T>
         inline void readValue(T &value) {

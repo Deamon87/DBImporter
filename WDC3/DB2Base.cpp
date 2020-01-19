@@ -22,6 +22,7 @@ bool checkDataIfNonZero(unsigned char *ptr, int length) {
 
 void DB2Base::process(HFileContent db2File, const std::string &fileName) {
     this->db2File = db2File;
+    this->db2FileName = fileName;
     fileData = &(*this->db2File.get())[0];
 
     currentOffset = 0;
@@ -75,12 +76,18 @@ void DB2Base::process(HFileContent db2File, const std::string &fileName) {
 //    readValues(common_data, );
 
     //Read section
+    bool prevSectionWasEncrypted = false;
     for (int i = 0; i < header->section_count; i++) {
         auto &itemSectionHeader = section_headers[i];
         sections.resize(sections.size()+1);
         section &section = sections[sections.size()-1];
 
 //        if (itemSectionHeader.tact_key_hash != 0) break;
+        //Prev section was encrypted. So it's required to fix current position in file
+        if (prevSectionWasEncrypted) {
+            currentOffset = itemSectionHeader.file_offset;
+            prevSectionWasEncrypted = false;
+        }
 
         assert(itemSectionHeader.file_offset == currentOffset);
 
@@ -93,12 +100,28 @@ void DB2Base::process(HFileContent db2File, const std::string &fileName) {
 
                 section.records.push_back(recordData);
             }
+            readValues(section.string_data, itemSectionHeader.string_table_size);
 
-            if (section.records.size() > 0) {
-                section.isEncoded = checkDataIfNonZero(section.records[0].data,itemSectionHeader.record_count* header->record_size);
+            //Check if section was decrypted properly
+            if (itemSectionHeader.tact_key_hash != 0) {
+                bool dataIsZero = true;
+                bool stringsAreZero = true;
+                if (section.records.size() > 0) {
+                    dataIsZero = checkDataIfNonZero(section.records[0].data,
+                                                    itemSectionHeader.record_count * header->record_size);
+                }
+                if (itemSectionHeader.string_table_size > 0) {
+                    stringsAreZero = checkDataIfNonZero(section.string_data, itemSectionHeader.string_table_size);
+                }
+
+                //The section was not decrypted properly, so no point in parsing it further
+                if (dataIsZero && stringsAreZero) {
+                    prevSectionWasEncrypted = true;
+                    section.isEncoded = true;
+                    continue;
+                }
             }
 
-            readValues(section.string_data, itemSectionHeader.string_table_size);
         } else {
             // Offset map records -- these records have null-terminated strings inlined, and
             // since they are variable-length, they are pointed to by an array of 6-byte
@@ -195,6 +218,14 @@ std::string DB2Base::readString(unsigned char* &fieldPointer, int sectionIndex) 
         }
 
         result = std::string((char *)&sections[sectionIdforStr].string_data[offset]);
+        if (sectionIdforStr != sectionIndex) {
+            std::cout << "Enemy spotted: db2 = " << this->db2FileName
+                << " recordIndex = " << this->currentRecord
+                << " fieldIndex = " << this->currentField
+                << " expected section of string = " << sectionIndex
+                << " real section of string = " << sectionIdforStr
+                << " string content = " << result;
+        }
     } else {
         result = std::string((char *)fieldPointer);
         fieldPointer+=result.length()+1;
@@ -283,6 +314,8 @@ bool DB2Base::readRecordByIndex(int index, int minFieldNum, int fieldsToRead,
         sectionIndex++;
     }
 
+    this->currentRecord = index;
+
 
     auto &sectionDef = sections[sectionIndex];
     auto &sectionHeader = section_headers[sectionIndex];
@@ -311,6 +344,8 @@ bool DB2Base::readRecordByIndex(int index, int minFieldNum, int fieldsToRead,
 
     unsigned char *fieldDataPointer = &recordPointer[0];
     for (int i = minFieldNum; i < numOfFieldToRead; i++) {
+        this->currentField = i;
+
         if ((header->flags & 1) == 0) {
             auto &fieldInfo = field_info[i];
 
