@@ -281,6 +281,7 @@ bool DB2Base::readRecordByIndex(int index, int minFieldNum, int fieldsToRead,
                                 std::function<void(uint32_t &recordId, int fieldNum, int subIndex, int sectionNum, unsigned char * &data, size_t length)> callback) {
     //Find Record by section
     int sectionIndex = 0;
+    int globalRecordIndex = index;
     while (index >= section_headers[sectionIndex].record_count) {
         index -= section_headers[sectionIndex].record_count;
         sectionIndex++;
@@ -302,6 +303,9 @@ bool DB2Base::readRecordByIndex(int index, int minFieldNum, int fieldsToRead,
     if ((header->flags & 1) == 0) {
         if (sectionHeader.id_list_size > 0) {
             recordId = sectionDef.id_list[index];
+        }
+        if (recordId == 0) {
+            recordId = header->min_id+globalRecordIndex;
         }
         recordPointer = sectionDef.records[index].data;
     } else {

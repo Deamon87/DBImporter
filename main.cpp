@@ -9,7 +9,8 @@
 #include "WDC3/DB2Base.h"
 
 #include <SQLiteCpp/SQLiteCpp.h>
-#include <sqlite3.h>
+#include <csignal>
+//#include <sqlite3.h>
 
 
 #include "CSQLLiteImporter.h"

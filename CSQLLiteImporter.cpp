@@ -2,13 +2,14 @@
 // Created by deamon on 16.12.19.
 //
 
-#include <sqlite3.h>
+//#include <sqlite3.h>
 #include <iostream>
 #include <fstream>
 #include <SQLiteCpp/Transaction.h>
 #include "CSQLLiteImporter.h"
 #include "WDC3/DB2Base.h"
 #include "WDC2/DB2Base.h"
+#include "3rdparty/SQLiteCpp/sqlite3/sqlite3.h"
 
 CSQLLiteImporter::CSQLLiteImporter(const std::string &databaseFile) : m_sqliteDatabase(databaseFile, SQLite::OPEN_READWRITE|SQLite::OPEN_CREATE) {
 
