@@ -191,8 +191,9 @@ bool CSQLLiteImporter::readWDC3Record(int i, std::vector<std::string> &fieldValu
                                       int InlineIdIndex, const std::vector<int> &columnDefFieldIndexToFieldIndex) {
 
     int recordIndex = i;
+    int recordId = -1;
     bool recordRead = db2Base.readRecordByIndex(i, 0, -1,
-        [&buildConfig, &m_dbdFile, &db2Base, InlineIdIndex, &fieldValues, columnDefFieldIndexToFieldIndex, recordIndex]
+        [&buildConfig, &recordId, &m_dbdFile, &db2Base, InlineIdIndex, &fieldValues, columnDefFieldIndexToFieldIndex, recordIndex]
         (uint32_t &id, int fieldNum, int subIndex, int sectionIndex, unsigned char *&data, size_t length) {
             auto *fieldDef = &buildConfig.columns[0];
             fieldDef = nullptr;
@@ -205,12 +206,13 @@ bool CSQLLiteImporter::readWDC3Record(int i, std::vector<std::string> &fieldValu
 
             if (fieldDef->isId) {
                 id = *(uint32_t *) data;
+                recordId = id;
             }
-
 
             if (fieldNum == 0 && InlineIdIndex > -1) {
                 //Id is pushed from internals of DB2Base
                 fieldValues[InlineIdIndex] = std::to_string(id);
+                recordId = id;
             }
 
             int fieldValuesIndex = columnDefFieldIndexToFieldIndex[fieldNum];
@@ -256,7 +258,7 @@ bool CSQLLiteImporter::readWDC3Record(int i, std::vector<std::string> &fieldValu
                     case FieldType::STRING:
                         //                            int offset = *(uint32_t *) data;
                         //                            offset += stringOffset;
-                        fieldValues[fieldValuesIndex++] = (db2Base.readString(data, sectionIndex, j));
+                        fieldValues[fieldValuesIndex++] = (db2Base.readString(data, sectionIndex));
                         break;
                 }
 

@@ -132,7 +132,9 @@ void DB2Base::process(HFileContent db2File, const std::string &fileName) {
         if (itemSectionHeader.offset_records_end > 0) {
             assert(itemSectionHeader.offset_records_end == currentOffset);
         }
-        readValues(section.id_list, itemSectionHeader.id_list_size / 4);
+//        if ((header->flags & 0x04) != 0) {
+            readValues(section.id_list, itemSectionHeader.id_list_size / 4);
+//        }
         if (itemSectionHeader.copy_table_count > 0) {
             readValues(section.copy_table, itemSectionHeader.copy_table_count);
         }
@@ -194,7 +196,7 @@ std::string DB2Base::readString(unsigned char* &fieldPointer, int sectionIndex) 
                 << " fieldIndex = " << this->currentField
                 << " expected section of string = " << sectionIndex
                 << " real section of string = " << sectionIdforStr
-                << " string content = " << result;
+                << " string content = " << result << std::endl;
         }
     } else {
         result = std::string((char *)fieldPointer);
@@ -360,15 +362,17 @@ bool DB2Base::readRecordByIndex(int index, int minFieldNum, int fieldsToRead,
                 case field_compression_common_data: {
                     uint32_t value = fieldInfo.field_compression_common_data.default_value;
                     //If id is found in commonData - take it from there instead of default value
-                    auto it = commonDataHashMap[i].find(recordId);
-                    if (it != commonDataHashMap[i].end()) {
-                        value = it->second;
+                    if (fieldInfo.additional_data_size >= 0) {
+                        auto it = commonDataHashMap[i].find(recordId);
+                        if (it != commonDataHashMap[i].end()) {
+                            value = it->second;
+                        }
+
+                        size_t bytesToRead = fieldInfo.field_size_bits >> 3;
+                        uint8_t *ptr = (uint8_t *) &value;
+
+                        callback(recordId, i, -1, sectionIndex, ptr, bytesToRead);
                     }
-
-                    size_t bytesToRead = fieldInfo.field_size_bits >> 3;
-                    uint8_t *ptr = (uint8_t *) &value;
-
-                    callback(recordId, i, -1, sectionIndex, ptr, bytesToRead);
                 }
                 break;
                 case field_compression_bitpacked_indexed:
