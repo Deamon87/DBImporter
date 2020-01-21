@@ -15,12 +15,12 @@
 class CSQLLiteImporter {
 public:
     CSQLLiteImporter(const std::string &databaseFile);
-
+    ~CSQLLiteImporter();
     void addTable(std::string &tableName, std::string version, std::string db2File, std::string dbdFile);
 
 private:
     SQLite::Database m_sqliteDatabase;
-
+    std::string m_databaseFile;
 
     void processWDC2(HFileContent fileContent){};
     void processWDC3(std::string tableName, HFileContent fileContent, std::shared_ptr<DBDFile> m_dbdFile, DBDFile::BuildConfig &buildConfig);

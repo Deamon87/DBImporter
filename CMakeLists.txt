@@ -15,8 +15,10 @@ add_executable(DBImporter main.cpp DBDFile.cpp DBDFile.h
         CSQLLiteImporter.cpp CSQLLiteImporter.h)
 
 find_library(SSP_EXISTS ssp)
+message("SSP_EXISTS = ${SSP_EXISTS}")
 if (SSP_EXISTS STREQUAL "SSP_EXISTS-NOTFOUND" )
     find_library(DL_EXISTS dl)
+    message("DL_EXISTS = ${DL_EXISTS}")
     if (NOT DL_EXISTS STREQUAL "DL_EXISTS-NOTFOUND")
         message("Linking against DL")
         target_link_libraries(DBImporter dl)
@@ -28,16 +30,10 @@ else()
 endif()
 
 
-
-
-
-
-
-
-
 target_link_libraries(DBImporter
         SQLiteCpp
         sqlite3
         pthread
         stdc++fs
+        ssp
         )

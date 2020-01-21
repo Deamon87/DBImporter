@@ -6,18 +6,21 @@
 #include <iostream>
 #include <fstream>
 #include <SQLiteCpp/Transaction.h>
+#include <SQLiteCpp/Database.h>
 #include "CSQLLiteImporter.h"
 #include "WDC3/DB2Base.h"
 #include "WDC2/DB2Base.h"
 #include "3rdparty/SQLiteCpp/sqlite3/sqlite3.h"
 
-CSQLLiteImporter::CSQLLiteImporter(const std::string &databaseFile) : m_sqliteDatabase(databaseFile, SQLite::OPEN_READWRITE|SQLite::OPEN_CREATE) {
 
+CSQLLiteImporter::CSQLLiteImporter(const std::string &databaseFile) : m_databaseFile(databaseFile), m_sqliteDatabase(":memory:", SQLite::OPEN_READWRITE|SQLite::OPEN_CREATE) {
     //Tell database that often writes to disk is not necessary
     char *sErrMsg = "";
     sqlite3_exec(m_sqliteDatabase.getHandle(), "PRAGMA synchronous = OFF", NULL, NULL, &sErrMsg);
-
+    sqlite3_exec(m_sqliteDatabase.getHandle(), "PRAGMA schema.journal_mode = MEMORY", NULL, NULL, &sErrMsg);
 }
+
+
 
 void CSQLLiteImporter::addTable(std::string &tableName, std::string version, std::string db2File, std::string dbdFile) {
     std::shared_ptr<DBDFile> m_dbdFile = std::make_shared<DBDFile>(dbdFile);
@@ -273,6 +276,11 @@ bool CSQLLiteImporter::readWDC3Record(int i, std::vector<std::string> &fieldValu
         }
     }
 
+    //Do not support records with id=0
+//    if (recordId == 0) {
+//        recordRead = false;
+//    }
+
     return recordRead;
 }
 
@@ -288,14 +296,20 @@ std::string CSQLLiteImporter::generateTableCreateSQL(std::string tableName,
     //Per columndef in DBD
     for (int i = 0; i < buildConfig.columns.size(); i++) {
         auto &columnDef = buildConfig.columns[i];
+        auto colFieldName = columnDef.fieldName;
+
+        //Reserved word in sqlite
+        if (colFieldName == "Default") {
+            colFieldName = "_Default";
+        }
 
         if (columnDef.isNonInline) {
-            tableCreateQuery += columnDef.fieldName + " INTEGER ";
+            tableCreateQuery += colFieldName + " INTEGER ";
             if (columnDef.isId) {
                 tableCreateQuery +=" PRIMARY KEY";
             }
             tableCreateQuery +=", ";
-            fieldNames.push_back(columnDef.fieldName);
+            fieldNames.push_back(colFieldName);
             fieldDefaultValues.push_back("0");
             sqlIndex++;
             continue;
@@ -303,9 +317,9 @@ std::string CSQLLiteImporter::generateTableCreateSQL(std::string tableName,
 
         if (columnDef.arraySize > 1) {
             for (int j = 0; j < columnDef.arraySize; j++) {
-                std::string columnName = columnDef.fieldName+"_"+std::to_string(j);
+                std::string columnName = colFieldName+"_"+std::to_string(j);
                 tableCreateQuery += columnName + " ";
-                auto &columnTypeDef = m_dbdFile->getColumnDef(columnDef.fieldName);
+                auto &columnTypeDef = m_dbdFile->getColumnDef(colFieldName);
                 switch (columnTypeDef.type) {
                     case FieldType::INT:
                         fieldDefaultValues.push_back("0");
@@ -327,8 +341,8 @@ std::string CSQLLiteImporter::generateTableCreateSQL(std::string tableName,
                 sqlIndex++;
             }
         } else {
-            tableCreateQuery += columnDef.fieldName + " ";
-            auto &columnTypeDef = m_dbdFile->getColumnDef(columnDef.fieldName);
+            tableCreateQuery += colFieldName + " ";
+            auto &columnTypeDef = m_dbdFile->getColumnDef(colFieldName);
             switch (columnTypeDef.type) {
                 case FieldType::INT:
                     fieldDefaultValues.push_back("0");
@@ -349,7 +363,7 @@ std::string CSQLLiteImporter::generateTableCreateSQL(std::string tableName,
             }
             tableCreateQuery +=", ";
 
-            fieldNames.push_back(columnDef.fieldName);
+            fieldNames.push_back(colFieldName);
             sqlIndex++;
         }
     }
@@ -358,4 +372,8 @@ std::string CSQLLiteImporter::generateTableCreateSQL(std::string tableName,
     tableCreateQuery +="); ";
 
     return tableCreateQuery;
+}
+
+CSQLLiteImporter::~CSQLLiteImporter() {
+    m_sqliteDatabase.backup(m_databaseFile.c_str(), SQLite::Database::BackupType::Save);
 }

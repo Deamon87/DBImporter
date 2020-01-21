@@ -127,6 +127,12 @@ void DB2Base::process(HFileContent db2File, const std::string &fileName) {
             // since they are variable-length, they are pointed to by an array of 6-byte
             // offset+size pairs.
             readValues(section.variable_record_data, itemSectionHeader.offset_records_end - itemSectionHeader.file_offset);
+            bool dataIsZero = checkDataIfNonZero(section.variable_record_data, itemSectionHeader.offset_records_end - itemSectionHeader.file_offset);
+            if (dataIsZero) {
+                prevSectionWasEncrypted = true;
+                section.isEncoded = true;
+                continue;
+            }
         }
 
         if (itemSectionHeader.offset_records_end > 0) {
@@ -285,6 +291,8 @@ bool DB2Base::readRecordByIndex(int index, int minFieldNum, int fieldsToRead,
     while (index >= section_headers[sectionIndex].record_count) {
         index -= section_headers[sectionIndex].record_count;
         sectionIndex++;
+        if (sectionIndex >= sections.size())
+            return false;
     }
 
     this->currentRecord = index;
@@ -366,7 +374,7 @@ bool DB2Base::readRecordByIndex(int index, int minFieldNum, int fieldsToRead,
                 case field_compression_common_data: {
                     uint32_t value = fieldInfo.field_compression_common_data.default_value;
                     //If id is found in commonData - take it from there instead of default value
-                    if (fieldInfo.additional_data_size >= 0) {
+                    if (fieldInfo.additional_data_size > 0) {
                         auto it = commonDataHashMap[i].find(recordId);
                         if (it != commonDataHashMap[i].end()) {
                             value = it->second;
