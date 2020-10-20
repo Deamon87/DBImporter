@@ -1,6 +1,6 @@
  # DBImporter
  
- Small utility that imports WoW's db2 files into SQLite database
+ Small utility that imports WoW's WDC3 version of db2 files into SQLite database
  
 ```
  Usage: DBImporter -x <pathToDBDFiles> <pathToDBFiles> <sqliteFileName> 
