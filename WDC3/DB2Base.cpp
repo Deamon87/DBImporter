@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <algorithm>
 #include <iostream>
+#include <sstream>
 #include <assert.h>
 #include <cmath>
 #include <iomanip>

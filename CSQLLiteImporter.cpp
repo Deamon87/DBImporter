@@ -11,6 +11,7 @@
 #include "WDC3/DB2Base.h"
 #include "WDC2/DB2Base.h"
 #include "3rdparty/SQLiteCpp/sqlite3/sqlite3.h"
+#include <algorithm>
 
 
 CSQLLiteImporter::CSQLLiteImporter(const std::string &databaseFile) : m_databaseFile(databaseFile), m_sqliteDatabase(":memory:", SQLite::OPEN_READWRITE|SQLite::OPEN_CREATE) {
