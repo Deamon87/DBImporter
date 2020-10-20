@@ -77,7 +77,7 @@ int main(int argc, char **argv) {
     signal(SIGABRT, &my_function_to_handle_aborts);
 
 
-    if (argc < 6 || std::string(argv[1]) != "-x") {
+    if (argc < 5 || std::string(argv[1]) != "-x") {
         printUsage();
         return 1;
     }
