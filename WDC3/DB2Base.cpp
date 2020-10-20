@@ -7,6 +7,7 @@
 #include <iostream>
 #include <assert.h>
 #include <cmath>
+#include <iomanip>
 #include "DB2Base.h"
 
 using namespace WDC3;
@@ -450,7 +451,11 @@ int DB2Base::iterateOverCopyRecords(const std::function<void(int oldRecId, int n
 
         auto const &section = sections[i];
         for (int j = 0; j < section_headers[i].copy_table_count; j++) {
-            iterateFunction(sections[i].copy_table[j].id_of_copied_row,sections[i].copy_table[j].id_of_new_row);
+            auto &copyRecord = sections[i].copy_table[j];
+
+            if (copyRecord.id_of_copied_row != copyRecord.id_of_new_row) {
+                iterateFunction(sections[i].copy_table[j].id_of_copied_row, sections[i].copy_table[j].id_of_new_row);
+            }
         }
     }
     return 0;
@@ -465,5 +470,18 @@ int DB2Base::getRelationRecord(int recordIndex) {
     return getRelationRecord(recordIndex, sectionIndex);
 }
 int DB2Base::getRelationRecord(int recordIndexInSection, int sectionIndex) {
-    return sections[sectionIndex].perRecordIndexRelation[recordIndexInSection];
+    int result = sections[sectionIndex].perRecordIndexRelation[recordIndexInSection];
+    return result;
+}
+
+std::string DB2Base::getLayoutHash() {
+    std::stringstream res;
+    res << std::setfill('0') << std::setw(8) << std::hex << header->layout_hash ;
+    std::string resStr = res.str();
+    std::locale locale;
+    auto to_upper = [&locale] (char ch) { return std::use_facet<std::ctype<char>>(locale).toupper(ch); };
+
+    std::transform(resStr.begin(), resStr.end(), resStr.begin(), to_upper);
+    std::cout << "laoutHash = " << resStr << std::endl;
+    return resStr;
 }

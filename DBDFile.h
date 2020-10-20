@@ -51,6 +51,7 @@ private:
     std::vector<BuildConfig> buildConfigs;
 public:
     bool findBuildConfig(std::string buildVersionString, std::string layout, DBDFile::BuildConfig *&buildConfig);
+    bool findBuildConfigByLayout(std::string layout, DBDFile::BuildConfig *&buildConfig_);
     ColumnDef &getColumnDef(std::string &columnName) {
         return columnDefs[columnName];
     }

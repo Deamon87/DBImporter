@@ -116,6 +116,9 @@ void DBDFile::parseColumnDefLine(std::string &line) {
     std::string fieldType = out[0];
 
     newDef.fieldName = out[1];
+    if (newDef.fieldName[newDef.fieldName.size() -1] == '?') {
+        newDef.fieldName = newDef.fieldName.substr(0, newDef.fieldName.size() -1);
+    }
 
     //If type has "<", extract the type and foreign key name
     if (fieldType.find("<") != std::string::npos) {
@@ -209,9 +212,18 @@ void DBDFile::parseColumnBuildDefLine(std::string &line, BuildConfig &buildConfi
     buildConfig.columns.push_back(buildDef);
 }
 
- bool DBDFile::findBuildConfig(std::string buildVersionString, std::string layout, DBDFile::BuildConfig *&buildConfig_) {
+bool DBDFile::findBuildConfig(std::string buildVersionString, std::string layout, DBDFile::BuildConfig *&buildConfig_) {
     for (auto &buildConfig :buildConfigs) {
         if (std::find(buildConfig.builds.begin(), buildConfig.builds.end(), buildVersionString) != buildConfig.builds.end()) {
+            buildConfig_ = &buildConfig;
+            return true;
+        }
+    }
+    return false;
+}
+bool DBDFile::findBuildConfigByLayout(std::string layout, DBDFile::BuildConfig *&buildConfig_) {
+    for (auto &buildConfig :buildConfigs) {
+        if (std::find(buildConfig.layoutHashes.begin(), buildConfig.layoutHashes.end(), layout) != buildConfig.layoutHashes.end()) {
             buildConfig_ = &buildConfig;
             return true;
         }

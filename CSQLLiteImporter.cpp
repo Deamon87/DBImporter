@@ -22,17 +22,8 @@ CSQLLiteImporter::CSQLLiteImporter(const std::string &databaseFile) : m_database
 
 
 
-void CSQLLiteImporter::addTable(std::string &tableName, std::string version, std::string db2File, std::string dbdFile) {
+void CSQLLiteImporter::addTable(std::string &tableName, std::string db2File, std::string dbdFile) {
     std::shared_ptr<DBDFile> m_dbdFile = std::make_shared<DBDFile>(dbdFile);
-
-    DBDFile::BuildConfig *buildConfig_;
-
-    bool configFound = m_dbdFile->findBuildConfig(version, "", buildConfig_);
-    if (!configFound) {
-        std::cout << "Could not find config for file " + dbdFile << std::endl;
-        return;
-    }
-    DBDFile::BuildConfig &buildConfig = *buildConfig_;
 
     //Read DB2 into memory
     std::ifstream cache_file(db2File, std::ios::in |std::ios::binary);
@@ -56,30 +47,48 @@ void CSQLLiteImporter::addTable(std::string &tableName, std::string version, std
         return;
     }
 
+
+
     if (*(uint32_t *)vec->data() == 'WDC2') {
         WDC2::DB2Base db2Base;
         db2Base.process(vec, db2File);
 
 
     } else if (*(uint32_t *)vec->data() == '3CDW') {
-        processWDC3(tableName, vec, m_dbdFile, buildConfig);
+        WDC3::DB2Base db2Base;
+        db2Base.process(vec, "");
+        DBDFile::BuildConfig *buildConfig_;
+
+        bool configFound = m_dbdFile->findBuildConfigByLayout(db2Base.getLayoutHash(), buildConfig_);
+        if (!configFound) {
+            std::cout << "Could not find config for file " + dbdFile << std::endl;
+            return;
+        }
+        DBDFile::BuildConfig &buildConfig = *buildConfig_;
+
+
+
+        processWDC3(tableName, db2Base, m_dbdFile, buildConfig);
     }
 }
 
-void CSQLLiteImporter::processWDC3(std::string tableName, HFileContent fileContent, std::shared_ptr<DBDFile> m_dbdFile, DBDFile::BuildConfig &buildConfig) {
-    WDC3::DB2Base db2Base;
-    db2Base.process(fileContent, "");
+void CSQLLiteImporter::processWDC3(std::string tableName, WDC3::DB2Base &db2Base, std::shared_ptr<DBDFile> m_dbdFile, DBDFile::BuildConfig &buildConfig) {
+
 
     bool isIdNonInline = false;
     int InlineIdIndex = -1;
     int IdIndex = -1;
 
     std::vector<int> columnDefFieldIndexToFieldIndex = std::vector<int>(buildConfig.columns.size(), -1);
+    std::vector<int> columnDefIndexToSQLIndex = std::vector<int>(buildConfig.columns.size(), -1);
     int sqlFieldsCount;
     {
         int sqlIndex = 0;
         int columnDB2Index = 0;
-        for (auto &columnDef : buildConfig.columns) {
+        for (size_t i = 0; i < buildConfig.columns.size(); i++) {
+            auto &columnDef = buildConfig.columns[i];
+            columnDefIndexToSQLIndex[i] = sqlIndex;
+
             if (columnDef.isId) {
                 IdIndex = sqlIndex;
                 if (columnDef.isNonInline) {
@@ -159,7 +168,7 @@ void CSQLLiteImporter::processWDC3(std::string tableName, HFileContent fileConte
 //                    fieldValues = std::vector<std::string>(sqlIndex, "");
 
         fieldValues = fieldDefaultValues;
-        bool recordRead = readWDC3Record(i, fieldValues, db2Base, m_dbdFile, buildConfig, InlineIdIndex, columnDefFieldIndexToFieldIndex);
+        bool recordRead = readWDC3Record(i, fieldValues, db2Base, m_dbdFile, buildConfig, InlineIdIndex, columnDefFieldIndexToFieldIndex, columnDefIndexToSQLIndex);
 
         if (recordRead) {
             SQLite::Transaction transaction(m_sqliteDatabase);
@@ -192,7 +201,8 @@ void CSQLLiteImporter::processWDC3(std::string tableName, HFileContent fileConte
 
 bool CSQLLiteImporter::readWDC3Record(int i, std::vector<std::string> &fieldValues, WDC3::DB2Base &db2Base,
                                       std::shared_ptr<DBDFile> &m_dbdFile, DBDFile::BuildConfig &buildConfig,
-                                      int InlineIdIndex, const std::vector<int> &columnDefFieldIndexToFieldIndex) {
+                                      int InlineIdIndex, const std::vector<int> &columnDefFieldIndexToFieldIndex,
+                                      const std::vector<int> &columnDefIndexToSQLIndex) {
 
     int recordIndex = i;
     int recordId = -1;
@@ -272,7 +282,7 @@ bool CSQLLiteImporter::readWDC3Record(int i, std::vector<std::string> &fieldValu
     for (int j = 0; j < buildConfig.columns.size(); j++) {
         auto &columnDef = buildConfig.columns[j];
         if (columnDef.isRelation && columnDef.isNonInline) {
-            fieldValues[j] = std::to_string(db2Base.getRelationRecord(recordIndex));
+            fieldValues[columnDefIndexToSQLIndex[j]] = std::to_string(db2Base.getRelationRecord(recordIndex));
         }
     }
 
@@ -282,6 +292,12 @@ bool CSQLLiteImporter::readWDC3Record(int i, std::vector<std::string> &fieldValu
 //    }
 
     return recordRead;
+}
+
+std::string toLowerCase(std::string s) {
+    std::transform(s.begin(), s.end(), s.begin(),
+                   [](unsigned char c){ return std::tolower(c); });
+    return s;
 }
 
 std::string CSQLLiteImporter::generateTableCreateSQL(std::string tableName,
@@ -298,9 +314,16 @@ std::string CSQLLiteImporter::generateTableCreateSQL(std::string tableName,
         auto &columnDef = buildConfig.columns[i];
         auto colFieldName = columnDef.fieldName;
 
-        //Reserved word in sqlite
-        if (colFieldName == "Default") {
+        //Reserved words in sqlite
+        if (toLowerCase(colFieldName) == "default") {
             colFieldName = "_Default";
+        }
+
+        if (toLowerCase(colFieldName) == "order") {
+            colFieldName = "_Order";
+        }
+        if (toLowerCase(colFieldName) == "index") {
+            colFieldName = "_Index";
         }
 
         if (columnDef.isNonInline) {

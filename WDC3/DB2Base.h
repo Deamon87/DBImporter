@@ -185,6 +185,7 @@ namespace WDC3 {
         void process(HFileContent db2File, const std::string &fileName);
 
         bool getIsLoaded() { return m_loaded; };
+        std::string getLayoutHash();
 
         bool readRecordByIndex(int index, int minFieldNum, int fieldsToRead,
                                std::function<void(uint32_t &recordId, int fieldNum, int subIndex, int sectionNum, unsigned char *&data, size_t length)> callback);

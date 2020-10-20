@@ -18,13 +18,12 @@
 namespace fs = std::filesystem;
 
 void printUsage() {
-    std::cout << "Usage: DBImporter -x <pathToDBDFiles> <pathToDBFiles> <version> <sqliteFileName>" << std::endl;
+    std::cout << "Usage: DBImporter -x <pathToDBDFiles> <pathToDBFiles> <sqliteFileName>" << std::endl;
     std::cout << "Options: " << std::endl;
 
     std::cout << "  -x                   Mandatory flag for future uses" << std::endl;
     std::cout << "  <pathToDBDFiles>     Path to folder with database definition files *.dbd" << std::endl;
     std::cout << "  <pathToDBFiles>      Path to folder with db2 files. Right now only files with WDC3 header are supported" << std::endl;
-    std::cout << "  <version>            Build and version of db2 files. For example: 8.3.0.32414" << std::endl;
     std::cout << "  <sqliteFileName>     File name for sqlite database. File will be created if it doesnt exist" << std::endl;
 }
 
@@ -85,9 +84,8 @@ int main(int argc, char **argv) {
 
     std::string definitionsPath = std::string(argv[2]);
     std::string DB2Folder = std::string(argv[3]);
-    std::string version = std::string(argv[4]);
 
-    CSQLLiteImporter csqlLiteImporter = CSQLLiteImporter(std::string(argv[5]));
+    CSQLLiteImporter csqlLiteImporter = CSQLLiteImporter(std::string(argv[4]));
 
     for (const auto& entry : fs::directory_iterator(definitionsPath)) {
         const auto filenameStr = entry.path().filename().string();
@@ -104,7 +102,7 @@ int main(int argc, char **argv) {
                 continue;
             }
 
-//            dbdFileName = "UnitTestSparse";
+//            dbdFileName = "itembonustree";
 //            version = "8.0.1.26231";
 
             std::string tableName = dbdFileName;
@@ -116,7 +114,7 @@ int main(int argc, char **argv) {
 
             std::string pathToDB2 = DB2Folder + db2Name+".db2";
 
-            csqlLiteImporter.addTable(tableName, version, pathToDB2, definitionsPath+dbdFileName+".dbd");
+            csqlLiteImporter.addTable(tableName, pathToDB2, definitionsPath+dbdFileName+".dbd");
 //            break;
         }
     }
