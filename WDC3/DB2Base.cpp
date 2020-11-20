@@ -361,11 +361,11 @@ bool DB2Base::readRecordByIndex(int index, int minFieldNum, int fieldsToRead,
                     *((uint32_t*) &buffer[0]) = get_bits(recordPointer, bitOffset, bitesToRead);
 
                     if (fieldInfo.storage_type == field_compression_bitpacked_signed) {
-                        uint32_t signExtension = 0xFFFFFFFF << (bitesToRead);
                         uint32_t value = *((uint32_t *) &buffer[0]);
-                        if (((value & (1 << (bitesToRead-1 ))) != 0)) {
-                            *((uint32_t *) &buffer[0]) = (value | signExtension);
-                        }
+                        value = value << (32-bitesToRead);
+                        int32_t value_s = *(int32_t *) &value;
+                        value_s = value_s >> (32-bitesToRead);
+                        *((int32_t*) &buffer[0]) = value_s;
                     }
 
 

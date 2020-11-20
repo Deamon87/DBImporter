@@ -30,20 +30,26 @@ add_executable(DBImporter main.cpp DBDFile.cpp DBDFile.h
         WDC3/DB2Base.cpp
         CSQLLiteImporter.cpp CSQLLiteImporter.h)
 
-find_library(SSP_EXISTS ssp)
-message("SSP_EXISTS = ${SSP_EXISTS}")
-if (SSP_EXISTS STREQUAL "SSP_EXISTS-NOTFOUND" )
+if (NOT MSVC)
     find_library(DL_EXISTS dl)
     message("DL_EXISTS = ${DL_EXISTS}")
     if (NOT DL_EXISTS STREQUAL "DL_EXISTS-NOTFOUND")
         message("Linking against DL")
         target_link_libraries(DBImporter dl)
-    endif()
-else()
-    message("Linking against SSP")
+    else()
+
+    #    find_library(SSP_EXISTS ssp)
+    #    message("SSP_EXISTS = ${SSP_EXISTS}")
+    #    if (SSP_EXISTS STREQUAL "SSP_EXISTS-NOTFOUND" )
+
+        message("Linking against SSP")
         message(${SSP_EXISTS})
-    target_link_libraries(DBImporter ssp)
-endif()
+        target_link_libraries(DBImporter ssp)
+    endif()
+endif(NOT MSVC)
+
+
+
 
 
 target_link_libraries(DBImporter
@@ -52,5 +58,5 @@ target_link_libraries(DBImporter
         )
 
 if (NOT MSVC)
-    target_link_libraries(DBImporter pthread stdc++fs ssp)
+    target_link_libraries(DBImporter pthread stdc++fs)
 endif()
