@@ -189,7 +189,10 @@ void DBDFile::parseColumnBuildDefLine(std::string &line, BuildConfig &buildConfi
     if (braceStart != std::string::npos ) {
         nameEnd = braceStart;
         auto bitStr = line.substr(braceStart+1, braceEnd - braceStart-1);
-        if (bitStr == "32") {
+        if (bitStr == "64") {
+            buildDef.isSigned = true;
+            buildDef.bitSize = 64;
+        } else if (bitStr == "32") {
             buildDef.isSigned = true;
             buildDef.bitSize = 32;
         } else if (bitStr == "u32") {

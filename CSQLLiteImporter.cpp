@@ -243,17 +243,23 @@ bool CSQLLiteImporter::readWDC3Record(int i, std::vector<std::string> &fieldValu
 
                 switch (columnDef.type) {
                     case FieldType::INT:
-                        if (fieldDef->bitSize == 16) {
+                        if (fieldDef->bitSize == 64) {
                             if (fieldDef->isSigned) {
-                                fieldValues[fieldValuesIndex++] = std::to_string(*(int16_t *) data);
+                                fieldValues[fieldValuesIndex++] = std::to_string(*(int64_t *) data);
                             } else {
-                                fieldValues[fieldValuesIndex++] = std::to_string(*(uint16_t *) data);
+                                fieldValues[fieldValuesIndex++] = std::to_string(*(uint64_t *) data);
                             }
                         } else if (fieldDef->bitSize == 32 || fieldDef->bitSize == 0) {
                             if (fieldDef->isSigned) {
                                 fieldValues[fieldValuesIndex++] = std::to_string(*(int32_t *) data);
                             } else {
                                 fieldValues[fieldValuesIndex++] = std::to_string(*(uint32_t *) data);
+                            }
+                        } else if (fieldDef->bitSize == 16) {
+                            if (fieldDef->isSigned) {
+                                fieldValues[fieldValuesIndex++] = std::to_string(*(int16_t *) data);
+                            } else {
+                                fieldValues[fieldValuesIndex++] = std::to_string(*(uint16_t *) data);
                             }
                         } else if (fieldDef->bitSize == 8 ) {
                             if (fieldDef->isSigned) {
