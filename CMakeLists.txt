@@ -18,7 +18,7 @@ if (MSVC)
 	endif() 
 endif()
 
-set(SQLITECPP_RUN_CPPLINT 0)
+set(SQLITECPP_RUN_CPPLINT OFF CACHE BOOL "")
 
 add_subdirectory(${PROJECT_SOURCE_DIR}/3rdparty/SQLiteCpp)
 
