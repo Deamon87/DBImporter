@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.13)
 project(DBImporter)
 
 set(CMAKE_CXX_STANDARD 17)
+message("CMAKE_GENERATOR = ${CMAKE_GENERATOR}")
 
 if (MSVC)
 	include(CheckCXXCompilerFlag)
