@@ -8,6 +8,7 @@
 #include <vector>
 #include <functional>
 #include <memory>
+#include <unordered_map>
 
 #ifndef _MSC_VER
 #define PACK( __Declaration__ ) __Declaration__ __attribute__((__packed__))

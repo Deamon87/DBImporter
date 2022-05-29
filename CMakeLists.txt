@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.13)
 project(DBImporter)
 
 set(CMAKE_CXX_STANDARD 17)
+message("CMAKE_GENERATOR = ${CMAKE_GENERATOR}")
 
 if (MSVC)
 	include(CheckCXXCompilerFlag)
@@ -37,14 +38,15 @@ if (NOT MSVC)
         message("Linking against DL")
         target_link_libraries(DBImporter dl)
     else()
+       find_library(SSP_EXISTS ssp)
+       message("SSP_EXISTS = ${SSP_EXISTS}")
+       if (DL_EXISTS STREQUAL "SSP_EXISTS-NOTFOUND")
+           error( "Neither DL nor SSP was found" )
+       endif()
+       
+       message("Linking against SSP")
 
-    #    find_library(SSP_EXISTS ssp)
-    #    message("SSP_EXISTS = ${SSP_EXISTS}")
-    #    if (SSP_EXISTS STREQUAL "SSP_EXISTS-NOTFOUND" )
-
-        message("Linking against SSP")
-        message(${SSP_EXISTS})
-        target_link_libraries(DBImporter ssp)
+       target_link_libraries(DBImporter ssp)
     endif()
 endif(NOT MSVC)
 
@@ -58,5 +60,8 @@ target_link_libraries(DBImporter
         )
 
 if (NOT MSVC)
-    target_link_libraries(DBImporter pthread stdc++fs)
+    target_link_libraries(DBImporter pthread)
+    if (NOT CMAKE_CXX_COMPILER_ID MATCHES "AppleClang")
+      target_link_libraries(DBImporter stdc++fs)
+    endif()
 endif()
