@@ -61,7 +61,7 @@ target_link_libraries(DBImporter
 
 if (NOT MSVC)
     target_link_libraries(DBImporter pthread)
-    if (NOT CMAKE_GENERATOR STREQUAL "Xcode")
-        target_link_libraries(DBImporter stdc++fs)
+    if (NOT CMAKE_CXX_COMPILER_ID MATCHES "AppleClang")
+      target_link_libraries(DBImporter stdc++fs)
     endif()
 endif()
