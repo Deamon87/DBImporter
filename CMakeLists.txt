@@ -37,14 +37,15 @@ if (NOT MSVC)
         message("Linking against DL")
         target_link_libraries(DBImporter dl)
     else()
+       find_library(SSP_EXISTS ssp)
+       message("SSP_EXISTS = ${SSP_EXISTS}")
+       if (DL_EXISTS STREQUAL "SSP_EXISTS-NOTFOUND")
+           error( "Neither DL nor SSP was found" )
+       endif()
+       
+       message("Linking against SSP")
 
-    #    find_library(SSP_EXISTS ssp)
-    #    message("SSP_EXISTS = ${SSP_EXISTS}")
-    #    if (SSP_EXISTS STREQUAL "SSP_EXISTS-NOTFOUND" )
-
-        message("Linking against SSP")
-        message(${SSP_EXISTS})
-        target_link_libraries(DBImporter ssp)
+       target_link_libraries(DBImporter ssp)
     endif()
 endif(NOT MSVC)
 
