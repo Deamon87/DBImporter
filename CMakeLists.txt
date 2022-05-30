@@ -23,7 +23,7 @@ if (WIN32 AND NOT MSVC)
     add_compile_options(-fstack-protector)
 endif()
 
-add_subdirectory(${PROJECT_SOURCE_DIR}/3rdparty/SQLiteCpp)
+add_subdirectory(${PROJECT_SOURCE_DIR}/3rdparty/SQLiteCpp EXCLUDE_FROM_ALL)
 
 include_directories(
         ${CMAKE_CURRENT_LIST_DIR}/3rdparty/SQLiteCpp/include
