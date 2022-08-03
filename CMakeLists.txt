@@ -32,7 +32,8 @@ include_directories(
 add_executable(DBImporter main.cpp DBDFile.cpp DBDFile.h
         WDC2/DB2Base.cpp
         WDC3/DB2Base.cpp
-        CSQLLiteImporter.cpp CSQLLiteImporter.h)
+        CSQLLiteImporter.cpp CSQLLiteImporter.h
+        DBDFileStorage.cpp DBDFileStorage.h)
 
 if (NOT MSVC)
     find_library(DL_EXISTS dl)

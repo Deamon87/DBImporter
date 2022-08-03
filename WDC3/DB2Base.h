@@ -20,6 +20,13 @@
 typedef std::vector<unsigned char> FileContent;
 typedef std::shared_ptr<FileContent> HFileContent;
 namespace WDC3 {
+    struct WDC3Flags {
+        uint16_t isSparse : 1;
+        uint16_t flag0x2 : 1;
+        uint16_t hasNonInlineId : 1;
+
+    };
+
     PACK(
     struct wdc3_db2_header {
         uint32_t magic;                  // 'WDC3'
@@ -32,7 +39,7 @@ namespace WDC3 {
         uint32_t min_id;
         uint32_t max_id;
         uint32_t locale;                 // as seen in TextWowEnum
-        uint16_t flags;                  // possible values are listed in Known Flag Meanings
+        WDC3Flags flags;                  // possible values are listed in Known Flag Meanings
         uint16_t id_index;               // this is the index of the field containing ID values; this is ignored if flags & 0x04 != 0
         uint32_t total_field_count;      // from WDC1 onwards, this value seems to always be the same as the 'field_count' value
         uint32_t bitpacked_data_offset;  // relative position in record where bitpacked data begins; not important for parsing the file
@@ -181,37 +188,93 @@ namespace WDC3 {
         std::unordered_map<int, int> perRecordIndexRelation = {};
     };
 
-    class DB2Base {
+    class DB2Base : public std::enable_shared_from_this<WDC3::DB2Base> {
+        class WDC3Record;
+        class WDC3RecordSparse;
     public:
+        DB2Base() = default;
+
         void process(HFileContent db2File, const std::string &fileName);
 
         bool getIsLoaded() { return m_loaded; };
         std::string getLayoutHash();
 
-        bool readRecordByIndex(int index, int minFieldNum, int fieldsToRead,
-                               std::function<void(uint32_t &recordId, int fieldNum, int subIndex, int sectionNum, unsigned char *&data, size_t length)> callback);
+//        bool readRecordByIndex(int index, int minFieldNum, int fieldsToRead,
+//                               std::function<void(uint32_t &recordId, int fieldNum, int subIndex, int sectionNum, unsigned char *&data, size_t length)> callback);
+        std::shared_ptr<WDC3Record> getRecord(int recordIndex);
+        std::shared_ptr<WDC3RecordSparse> getSparseRecord(int recordIndex);
 
         int getRecordCount() { return header->record_count; };
-        int isEmbeddedType() { return (header->flags & 1) != 0; };
+        int isSparse();
+        bool hasRelationshipField() { return hasRelationShipField; };
 
         int getRelationRecord(int recordIndex);
         int getRelationRecord(int recordIndexInSection, int sectionIndex);
+        static void guessFieldSizeForCommon(int filedSizeBits, int &elementSizeBytes, int &arraySize);
 
-        std::string readString(unsigned char* &fieldPointer, int sectionIndex);
         int iterateOverCopyRecords(const std::function<void(int oldRecId, int newRecId)> &iterateFunction);
 
+        const field_storage_info * const getFieldInfo(uint32_t fieldIndex) const;
 
+        const WDC3::wdc3_db2_header* const getWDCHeader() {
+            return this->header;
+        }
+
+        union WDCFieldValue {
+            uint64_t v64;
+            int64_t v64s;
+            uint32_t v32;
+            int32_t v32s;
+            float v_f;
+        };
     private:
+        class WDC3Record {
+        private:
+            WDC3Record(const WDC3Record&) = delete;
+            WDC3Record(const WDC3Record&&) = delete;
+            WDC3Record() = delete;
+
+            std::shared_ptr<DB2Base const> db2Class;
+            int recordId;
+            unsigned char *recordPointer;
+
+            uint32_t recordIndex;
+            uint32_t sectionIndex;
+
+        public:
+            WDC3Record(std::shared_ptr<DB2Base const> db2Class,
+                       int recordId,
+                       uint32_t recordIndex,
+                       unsigned char *recordPointer,
+                       uint32_t sectionIndex);
+
+            int getRecordId() { return recordId; }
+            [[nodiscard]] std::vector<WDC3::DB2Base::WDCFieldValue> getField(int fieldIndex, int externalArraySize, int externalElemSizeBytes) const;
+            [[nodiscard]] std::string readString(int fieldIndex) const;
+        };
+        class WDC3RecordSparse {
+        private:
+            const std::shared_ptr<DB2Base const> db2Class;
+            int recordId;
+            uint32_t fieldOffset = 0;
+            uint32_t currentFieldIndex = 0;
+            unsigned char *recordPointer;
+        public:
+            WDC3RecordSparse(const std::shared_ptr<DB2Base const> &db2Class,
+                             int recordId,
+                             unsigned char *recordPointer);
+
+            int getRecordId() { return recordId; }
+            [[nodiscard]] std::vector<WDC3::DB2Base::WDCFieldValue> readNextField(int arrayElementSizeInBytes) ;
+            [[nodiscard]] std::string readNextAsString() ;
+        };
+
         bool m_loaded = false;
         HFileContent db2File;
         std::string db2FileName;
         unsigned char *fileData;
         int currentOffset;
         int bytesRead;
-
-        //Debug:
-        int currentRecord = 0;
-        int currentField = 0;
 
         template<typename T>
         inline void readValue(T &value) {
@@ -246,14 +309,15 @@ namespace WDC3 {
         field_structure *fields;
         field_storage_info *field_info;
         int fieldInfoLength = -1;
-        char *pallet_data;
-//        char *common_data;
+
+        bool hasRelationShipField = false;
+
         //per field, per ID
         std::vector<std::unordered_map<int32_t,uint32_t>> commonDataHashMap;
         std::vector<std::vector<int32_t>> palleteDataArray;
         std::vector<section> sections;
 
-
+        bool getSectionIndex(int recordIndex, int &sectionIndex, int &indexWithinSection) const;
     };
 }
 

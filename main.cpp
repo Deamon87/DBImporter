@@ -6,15 +6,13 @@
 
 #include "DBDFile.h"
 #include "WDC2/DB2Base.h"
-#include "WDC3/DB2Base.h"
 
-#include <SQLiteCpp/SQLiteCpp.h>
 #include <csignal>
 #include <exception>
-//#include <sqlite3.h>
 
 
 #include "CSQLLiteImporter.h"
+#include "DBDFileStorage.h"
 
 namespace fs = std::filesystem;
 
@@ -89,35 +87,29 @@ int main(int argc, char **argv) {
     std::string DB2Folder = std::string(argv[3]);
 
     CSQLLiteImporter csqlLiteImporter = CSQLLiteImporter(std::string(argv[4]));
+    std::shared_ptr<DBDFileStorage> fileDBDStorage = std::make_shared<DBDFileStorage>(definitionsPath);
 
-    for (const auto& entry : fs::directory_iterator(definitionsPath)) {
+    for (const auto& entry : fs::directory_iterator(DB2Folder)) {
         const auto filenameStr = entry.path().filename().string();
         if (entry.status().type() == fs::file_type::regular) {
 
-            std::string dbdFileName = "";
+            std::string db2FileName = "";
             std::string fileExtension = "";
             auto pointPos = filenameStr.find(".");
             if ( pointPos != std::string::npos) {
-                dbdFileName = filenameStr.substr(0, pointPos);
+                db2FileName = filenameStr.substr(0, pointPos);
                 fileExtension = filenameStr.substr(pointPos+1, filenameStr.size()- pointPos);
-                if (fileExtension != "dbd") continue;
+                if (fileExtension != "db2") continue;
             } else {
                 continue;
             }
 
-//            dbdFileName = "itembonustree";
+//            db2FileName = "chrclasses";
 //            version = "8.0.1.26231";
 
-            std::string tableName = dbdFileName;
+            std::string tableName = db2FileName;
 
-            std::string db2Name = dbdFileName;
-            std::transform(db2Name.begin(), db2Name.end(), db2Name.begin(),
-                           [](unsigned char c){ return std::tolower(c); });
-
-
-            std::string pathToDB2 = DB2Folder + db2Name+".db2";
-
-            csqlLiteImporter.addTable(tableName, pathToDB2, definitionsPath+dbdFileName+".dbd");
+            csqlLiteImporter.addTable(tableName, DB2Folder+db2FileName+".db2", fileDBDStorage);
 //            break;
         }
     }

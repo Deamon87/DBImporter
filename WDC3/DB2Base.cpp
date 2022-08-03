@@ -78,16 +78,18 @@ void DB2Base::process(HFileContent db2File, const std::string &fileName) {
 //    readValues(common_data, );
 
     //Read section
+    sections.resize(header->section_count);
+
     for (int i = 0; i < header->section_count; i++) {
         auto &itemSectionHeader = section_headers[i];
-        sections.resize(sections.size()+1);
-        section &section = sections[sections.size()-1];
+
+        section &section = sections[i];
 
 //        if (itemSectionHeader.tact_key_hash != 0) break;
 
         assert(itemSectionHeader.file_offset == currentOffset);
 
-        if ((header->flags & 1) == 0) {
+        if (!header->flags.isSparse) {
             // Normal records
 
             for (int j = 0; j < itemSectionHeader.record_count; j++) {
@@ -107,9 +109,9 @@ void DB2Base::process(HFileContent db2File, const std::string &fileName) {
         if (itemSectionHeader.offset_records_end > 0) {
             assert(itemSectionHeader.offset_records_end == currentOffset);
         }
-//        if ((header->flags & 0x04) != 0) {
-            readValues(section.id_list, itemSectionHeader.id_list_size / 4);
-//        }
+
+        readValues(section.id_list, itemSectionHeader.id_list_size / 4);
+
         if (itemSectionHeader.copy_table_count > 0) {
             readValues(section.copy_table, itemSectionHeader.copy_table_count);
         }
@@ -128,6 +130,8 @@ void DB2Base::process(HFileContent db2File, const std::string &fileName) {
             readValue(section.relationship_map.max_id);
             readValues(section.relationship_map.entries, section.relationship_map.num_entries);
 
+            hasRelationShipField |= (section.relationship_map.num_entries > 0);
+
             for (int relationInd = 0; relationInd < section.relationship_map.num_entries; relationInd++) {
                 const auto &entry = section.relationship_map.entries[relationInd];
                 section.perRecordIndexRelation[entry.record_index] = entry.foreign_id;
@@ -143,7 +147,7 @@ void DB2Base::process(HFileContent db2File, const std::string &fileName) {
         if (itemSectionHeader.tact_key_hash != 0)
         {
             //Check if section was decrypted properly
-            if ((header->flags & 1) == 0){
+            if (!header->flags.isSparse) {
                 section.isEncoded = checkDataIfNonZero(section.records[0].data, currentOffset - itemSectionHeader.file_offset);
             }
             else {
@@ -156,51 +160,14 @@ void DB2Base::process(HFileContent db2File, const std::string &fileName) {
 }
 
 
-std::string DB2Base::readString(unsigned char* &fieldPointer, int sectionIndex) {
-    std::string result = "";
-    if ((header->flags & 1) == 0) {
-        int sizeToStringData = header->record_count*header->record_size;
-        int32_t offset = fieldPointer + (*((uint32_t *)fieldPointer)) - sections[sectionIndex].records[0].data;
-
-        //Get to the border of record data
-        for (int i = 0; i < sectionIndex; i++) {
-            sizeToStringData -= section_headers[i].record_count * header->record_size;
-        }
-        offset -= sizeToStringData;
-
-        //Find section that is referenced by this offset
-        int sectionIdforStr = 0;
-        while (sectionIdforStr < sectionIndex && offset >= section_headers[sectionIdforStr].string_table_size) {
-            offset -= section_headers[sectionIdforStr].string_table_size;
-            sectionIdforStr++;
-        }
-
-        result = std::string((char *)&sections[sectionIdforStr].string_data[offset]);
-        if (sectionIdforStr != sectionIndex) {
-            std::cout << "Enemy spotted: db2 = " << this->db2FileName
-                << " recordIndex = " << this->currentRecord
-                << " fieldIndex = " << this->currentField
-                << " expected section of string = " << sectionIndex
-                << " real section of string = " << sectionIdforStr
-                << " string content = " << result << std::endl;
-        }
-    } else {
-        result = std::string((char *)fieldPointer);
-        fieldPointer+=result.length()+1;
-    }
-
-    return result;
-}
-
-
-int get_bit(unsigned char *data, unsigned bitoffset) // returns the n-th bit
+bool get_bit(unsigned char *data, unsigned bitoffset) // returns the n-th bit
 {
     int c = (int)(data[bitoffset >> 3]); // X>>3 is X/8
     int bitmask = 1 << (bitoffset & 7);  // X&7 is X%8
-    return ((c & bitmask)!=0) ? 1 : 0;
+    return ((c & bitmask)!=0);
 }
 
-unsigned int get_bits(unsigned char* data, unsigned bitOffset, unsigned numBits)
+uint32_t get_bits(unsigned char* data, unsigned bitOffset, unsigned numBits)
 {
     unsigned int bits = 0;
     int bitPos = 0;
@@ -263,164 +230,71 @@ void extractBits(unsigned char *inputBuffer, unsigned char *outputBuffer, int bi
     }
 }
 
-bool DB2Base::readRecordByIndex(int index, int minFieldNum, int fieldsToRead,
-                                std::function<void(uint32_t &recordId, int fieldNum, int subIndex, int sectionNum, unsigned char * &data, size_t length)> callback) {
+bool DB2Base::getSectionIndex(int recordIndex, int &sectionIndex, int &indexWithinSection) const {
     //Find Record by section
-    int sectionIndex = 0;
-    int globalRecordIndex = index;
-    while (index >= section_headers[sectionIndex].record_count) {
-        index -= section_headers[sectionIndex].record_count;
+    sectionIndex = 0;
+    indexWithinSection = recordIndex;
+
+    while (indexWithinSection >= section_headers[sectionIndex].record_count) {
+        indexWithinSection -= section_headers[sectionIndex].record_count;
         sectionIndex++;
         if (sectionIndex >= sections.size())
             return false;
     }
 
-    this->currentRecord = index;
-
-
-    auto &sectionDef = sections[sectionIndex];
-    auto &sectionHeader = section_headers[sectionIndex];
+    auto &sectionContent = sections[sectionIndex];
     //
-    if (sectionDef.isEncoded) return false;
-
-    int numOfFieldToRead = fieldsToRead >=0 ? fieldsToRead : header->field_count;
-    uint32_t recordId = 0;
-
-
-    uint8_t * recordPointer = nullptr;
-    if ((header->flags & 1) == 0) {
-        if (sectionHeader.id_list_size > 0) {
-            recordId = sectionDef.id_list[index];
-        }
-        if (recordId == 0) {
-            recordId = header->min_id+globalRecordIndex;
-        }
-        recordPointer = sectionDef.records[index].data;
-    } else {
-        recordId = sectionDef.offset_map_id_list[index];
-//        if (sectionDef.offset_map[index].size == 0) {
-//            return false;
-//        }
-
-        recordPointer = sectionDef.variable_record_data+sectionDef.offset_map[index].offset - sectionHeader.file_offset;
-//        sectionDef.variable_record_data
-    }
-
-    unsigned char *fieldDataPointer = &recordPointer[0];
-    for (int i = minFieldNum; i < numOfFieldToRead; i++) {
-        this->currentField = i;
-
-        if ((header->flags & 1) == 0) {
-            auto &fieldInfo = field_info[i];
-
-            switch (fieldInfo.storage_type) {
-                case field_compression_none: {
-                    int byteOffset = fieldInfo.field_offset_bits >> 3;
-                    int bytesToRead = fieldInfo.field_size_bits >> 3;
-
-                    unsigned char *fieldDataPointer = &recordPointer[byteOffset];
-
-                    callback(recordId, i, -1, sectionIndex, fieldDataPointer, bytesToRead);
-                }
-                break;
-
-
-                case field_compression_bitpacked:
-                case field_compression_bitpacked_signed:
-                {
-                    uint8_t buffer[128];
-
-                    unsigned int bitOffset = fieldInfo.field_offset_bits;
-                    unsigned int bitesToRead = fieldInfo.field_size_bits;
-
-                    //Zero the buffer
-                    for (int j = 0; j < 128; j++) buffer[j] = 0;
-
-                    *((uint32_t*) &buffer[0]) = get_bits(recordPointer, bitOffset, bitesToRead);
-
-                    if (fieldInfo.storage_type == field_compression_bitpacked_signed) {
-                        uint32_t value = *((uint32_t *) &buffer[0]);
-                        value = value << (32-bitesToRead);
-                        int32_t value_s = *(int32_t *) &value;
-                        value_s = value_s >> (32-bitesToRead);
-                        *((int32_t*) &buffer[0]) = value_s;
-                    }
-
-
-                    unsigned char *fieldDataPointer = &buffer[0];
-                    callback(recordId, i, -1, sectionIndex, fieldDataPointer, bitesToRead >> 3);
-                }
-                break;
-                case field_compression_common_data: {
-                    uint32_t value = fieldInfo.field_compression_common_data.default_value;
-                    //If id is found in commonData - take it from there instead of default value
-                    if (fieldInfo.additional_data_size > 0) {
-                        auto it = commonDataHashMap[i].find(recordId);
-                        if (it != commonDataHashMap[i].end()) {
-                            value = it->second;
-                        }
-
-                        size_t bytesToRead = fieldInfo.field_size_bits >> 3;
-                        uint8_t *ptr = (uint8_t *) &value;
-
-                        callback(recordId, i, -1, sectionIndex, ptr, bytesToRead);
-                    }
-                }
-                break;
-                case field_compression_bitpacked_indexed:
-                case field_compression_bitpacked_indexed_array:
-                    uint8_t buffer[128];
-
-                    unsigned int bitOffset = fieldInfo.field_compression_bitpacked_indexed.bitpacking_offset_bits;
-                    unsigned int bitesToRead = fieldInfo.field_compression_bitpacked_indexed.bitpacking_size_bits;
-
-                    bitOffset = fieldInfo.field_offset_bits;
-
-                    //Zero the buffer
-                    for (int j = 0; j < 128; j++) buffer[j] = 0;
-
-                    *((uint32_t*) &buffer[0]) = get_bits(recordPointer, bitOffset, bitesToRead);
-                    int palleteIndex = *(uint32_t *)&buffer[0];
-
-//                    uint8_t *ptr = reinterpret_cast<uint8_t *>(&pallet_data[properIndexForPalleteData + (palleteIndex*4)]);
-                    if (fieldInfo.storage_type == field_compression_bitpacked_indexed_array) {
-                        int array_count = fieldInfo.field_compression_bitpacked_indexed_array.array_count;
-                        for (int j = 0; j < array_count; j++) {
-                            int properPalleteIndex = (palleteIndex*array_count)+j;
-                            if (properPalleteIndex >= palleteDataArray[i].size()) {
-                                properPalleteIndex = 0; // TODO: HACK
-                            }
-                            uint32_t value = palleteDataArray[i][properPalleteIndex];
-                            uint8_t *ptr = (uint8_t *) &value;
-
-                            callback(recordId, i, j, sectionIndex, ptr, 4);
-                        }
-                    } else {
-                        int properPalleteIndex = palleteIndex;
-                        if (properPalleteIndex >= palleteDataArray[i].size()) {
-                            properPalleteIndex = 0; // TODO: HACK
-                        }
-                        uint8_t *ptr = reinterpret_cast<uint8_t *>(&palleteDataArray[i][properPalleteIndex]);
-
-                        callback(recordId, i, -1, sectionIndex, ptr, 4);
-                    }
-
-                    break;
-            }
-
-        } else {
-            //variable data
-            auto &fieldInfo = field_info[i];
-            int bytesToRead = fieldInfo.field_size_bits >> 3;
-
-
-
-            callback(recordId, i, -1, sectionIndex, fieldDataPointer, bytesToRead);
-        }
-    }
-
+    if (sectionContent.isEncoded)
+        return false;
 
     return true;
+}
+
+std::shared_ptr<DB2Base::WDC3Record> DB2Base::getRecord(const int recordIndex) {
+    if (isSparse())
+        return nullptr;
+
+    int indexWithinSection = -1;
+    int sectionIndex = -1;
+    if (!getSectionIndex(recordIndex, sectionIndex, indexWithinSection))
+        return nullptr;
+
+    auto &sectionContent = sections[sectionIndex];
+    auto &sectionHeader = section_headers[sectionIndex];
+
+    uint32_t recordId = 0;
+    if (sectionHeader.id_list_size > 0) {
+        recordId = sectionContent.id_list[indexWithinSection];
+    }
+    if (recordId == 0) {
+        //Some sections have id_list, but have 0 as an entry there for the record.
+        //That's when we need calc recordId this way
+        recordId = header->min_id+recordIndex;
+    }
+
+    unsigned char *recordPointer = sectionContent.records[indexWithinSection].data;
+
+    return std::make_shared<DB2Base::WDC3Record>(shared_from_this(),recordId,recordIndex,recordPointer,sectionIndex);
+}
+std::shared_ptr<DB2Base::WDC3RecordSparse> DB2Base::getSparseRecord(int recordIndex) {
+    if (!isSparse())
+        return nullptr;
+
+    int indexWithinSection = -1;
+    int sectionIndex = -1;
+    if (!getSectionIndex(recordIndex, sectionIndex, indexWithinSection))
+        return nullptr;
+
+    auto &sectionContent = sections[sectionIndex];
+    auto &sectionHeader = section_headers[sectionIndex];
+
+    int recordId = sectionContent.offset_map_id_list[indexWithinSection];
+    unsigned char *recordPointer =
+          sectionContent.variable_record_data
+        + sectionContent.offset_map[indexWithinSection].offset
+        - sectionHeader.file_offset;
+
+    return std::make_shared<DB2Base::WDC3RecordSparse>(shared_from_this(),recordId, recordPointer);
 }
 
 int DB2Base::iterateOverCopyRecords(const std::function<void(int oldRecId, int newRecId)>& iterateFunction) {
@@ -453,6 +327,24 @@ int DB2Base::getRelationRecord(int recordIndexInSection, int sectionIndex) {
     return result;
 }
 
+void DB2Base::guessFieldSizeForCommon(int fieldSizeBits, int &elementSizeBytes, int &arraySize) {
+    if (fieldSizeBits == 64 || fieldSizeBits == 32 ||  fieldSizeBits == 16 || fieldSizeBits == 8) {
+        arraySize = 1;
+        elementSizeBytes = fieldSizeBits >> 3;
+        return;
+    }
+    int fieldTotalSizeInBytes = fieldSizeBits >> 3;
+
+    if (fieldTotalSizeInBytes % 4 == 0) {
+        arraySize = fieldTotalSizeInBytes / 4;
+        elementSizeBytes = 4;
+    } else {
+        arraySize = fieldTotalSizeInBytes;
+        elementSizeBytes = 1;
+    }
+
+}
+
 std::string DB2Base::getLayoutHash() {
     std::stringstream res;
     res << std::setfill('0') << std::setw(8) << std::hex << header->layout_hash ;
@@ -461,6 +353,251 @@ std::string DB2Base::getLayoutHash() {
     auto to_upper = [&locale] (char ch) { return std::use_facet<std::ctype<char>>(locale).toupper(ch); };
 
     std::transform(resStr.begin(), resStr.end(), resStr.begin(), to_upper);
-    std::cout << "laoutHash = " << resStr << std::endl;
+    std::cout << "layoutHash = " << resStr << std::endl;
     return resStr;
 }
+
+int DB2Base::isSparse() { return header->flags.isSparse; }
+
+const field_storage_info * const DB2Base::getFieldInfo(uint32_t fieldIndex) const {
+    if (fieldIndex >= header->field_count) {
+        std::cout << "fieldIndex = " << fieldIndex << " is bigger than field count = " << header->field_count << std::endl;
+        return nullptr;
+    }
+    return &field_info[fieldIndex];
+}
+
+//---------------------------
+//- DB Record classes
+//---------------------------
+
+DB2Base::WDC3Record::WDC3Record(std::shared_ptr<DB2Base const> db2Class, int recordId, uint32_t recordIndex,
+                                unsigned char *recordPointer, uint32_t sectionIndex) :
+                                db2Class(db2Class), recordId(recordId), recordIndex(recordIndex),
+                                recordPointer(recordPointer), sectionIndex(sectionIndex)
+{
+
+}
+
+static inline void fixPaletteValue(WDC3::DB2Base::WDCFieldValue &value, int externalElemSizeBytes) {
+    if (externalElemSizeBytes > 0 && externalElemSizeBytes < 4) {
+        uint32_t mask = (1 << externalElemSizeBytes) - 1;
+        value.v32 = value.v32 & mask;
+    }
+}
+
+std::vector<WDC3::DB2Base::WDCFieldValue> DB2Base::WDC3Record::getField(int fieldIndex, int externalArraySize, int externalElemSizeBytes) const {
+    auto const db2Header = db2Class->header;
+
+    std::vector<WDC3::DB2Base::WDCFieldValue> result = {};
+
+    auto const fieldInfo = db2Class->getFieldInfo(fieldIndex);
+    if (fieldInfo == nullptr) {
+        return {};
+    }
+
+    switch (fieldInfo->storage_type) {
+        case field_compression_none: {
+            int byteOffset = fieldInfo->field_offset_bits >> 3;
+            int bytesToRead = fieldInfo->field_size_bits >> 3;
+
+            unsigned char *fieldDataPointer = &recordPointer[byteOffset];
+
+            //Current return datatype uint64_t supports only up to 64bits
+            int arraySize = 1;
+            int fieldSize = 1;
+            if (externalArraySize == -1) {
+                db2Class->guessFieldSizeForCommon(fieldInfo->field_size_bits, fieldSize, arraySize);
+            } else {
+                arraySize = externalArraySize;
+                fieldSize = externalElemSizeBytes;
+            }
+
+            for (int j = 0; j < arraySize; j++) {
+                auto &fieldValue = result.emplace_back();
+
+
+                static_assert(sizeof(fieldValue) == 8);
+                memcpy(&fieldValue, &fieldDataPointer[fieldSize*j], fieldSize);
+            }
+
+            break;
+        }
+
+
+        case field_compression_bitpacked:
+        case field_compression_bitpacked_signed: {
+            uint32_t unpackedValue = 0;
+
+            unsigned int bitOffset = fieldInfo->field_offset_bits;
+            unsigned int bitesToRead = fieldInfo->field_size_bits;
+
+            unpackedValue = get_bits(recordPointer, bitOffset, bitesToRead);
+
+            auto &fieldValue = result.emplace_back();
+
+            if (fieldInfo->storage_type == field_compression_bitpacked_signed) {
+                uint32_t value = unpackedValue;
+                value = value << (32-bitesToRead);
+                int32_t value_s = *(int32_t *) &value;
+                value_s = value_s >> (32-bitesToRead);
+
+                fieldValue.v32s = value_s;
+            } else {
+                fieldValue.v32 = unpackedValue;
+            }
+
+            break;
+        }
+
+        case field_compression_common_data: {
+            auto &fieldValue = result.emplace_back();
+
+            fieldValue.v32 = fieldInfo->field_compression_common_data.default_value;
+            //If id is found in commonData - take it from there instead of default value
+            if (fieldInfo->additional_data_size > 0) {
+                auto it = db2Class->commonDataHashMap[fieldIndex].find(recordId);
+                if (it != db2Class->commonDataHashMap[fieldIndex].end()) {
+                    fieldValue.v32 = it->second;
+                }
+            }
+            break;
+        }
+
+        case field_compression_bitpacked_indexed:
+        case field_compression_bitpacked_indexed_array: {
+
+            unsigned int bitOffset = fieldInfo->field_compression_bitpacked_indexed.bitpacking_offset_bits;
+            unsigned int bitesToRead = fieldInfo->field_compression_bitpacked_indexed.bitpacking_size_bits;
+
+            bitOffset = fieldInfo->field_offset_bits;
+
+            int palleteIndex = get_bits(recordPointer, bitOffset, bitesToRead);
+
+            if (fieldInfo->storage_type == field_compression_bitpacked_indexed_array) {
+                int array_count = fieldInfo->field_compression_bitpacked_indexed_array.array_count;
+                for (int j = 0; j < array_count; j++) {
+                    int properPalleteIndex = (palleteIndex * array_count) + j;
+
+                    //Safety check that doesnt happen as of 6/5/2022 on latest client
+                    assert(properPalleteIndex < db2Class->palleteDataArray[fieldIndex].size());
+
+                    auto &fieldValue = result.emplace_back();
+                    fieldValue.v32 = db2Class->palleteDataArray[fieldIndex][properPalleteIndex];;
+                    fixPaletteValue(fieldValue, externalElemSizeBytes);
+                }
+            } else {
+                int properPalleteIndex = palleteIndex;
+                assert(properPalleteIndex < db2Class->palleteDataArray[fieldIndex].size());
+
+                auto &fieldValue = result.emplace_back();
+                fieldValue.v32 = db2Class->palleteDataArray[fieldIndex][properPalleteIndex];
+                fixPaletteValue(fieldValue, externalElemSizeBytes);
+            }
+
+
+
+            break;
+        }
+    }
+
+    return result;
+}
+
+std::string DB2Base::WDC3Record::readString(int fieldIndex) const {
+    const wdc3_db2_header * const db2Header = db2Class->header;
+
+    if (fieldIndex >= db2Header->field_count) {
+        return "!#Invalid field number";
+    }
+
+    uint32_t fieldOffsetIntoGlobalArray =
+            (recordIndex * db2Header->record_size) +
+            (db2Class->field_info[fieldIndex].field_offset_bits >> 3);
+
+    std::vector<WDC3::DB2Base::WDCFieldValue> value = this->getField(fieldIndex, -1, 4);
+    if (value.empty()) {
+        return "!#ERROR while getting field value";
+    }
+
+    uint32_t stringOffsetIntoGlobalStringSection =
+            (fieldOffsetIntoGlobalArray + value[0].v32) - (db2Header->record_count*db2Header->record_size);
+
+    int offset = stringOffsetIntoGlobalStringSection; // NOLINT(cppcoreguidelines-narrowing-conversions)
+
+    //Find section that is referenced by this offset
+    const auto sectionHeaders = db2Class->section_headers;
+    int sectionIndexforStr = 0;
+    while (sectionIndexforStr < sectionIndex && offset >= sectionHeaders[sectionIndexforStr].string_table_size) {
+        offset -= sectionHeaders[sectionIndexforStr].string_table_size;
+        sectionIndexforStr++;
+    }
+
+    if (sectionIndexforStr >= db2Header->section_count) {
+        return "!#Found invalid section for String";
+    }
+
+    if (offset < 0 || offset >= sectionHeaders[sectionIndexforStr].string_table_size) {
+        return "!#Found invalid offset into Section's string table ";
+    }
+
+    std::string result = std::string((char *)&db2Class->sections[sectionIndexforStr].string_data[offset]);
+/*    if (sectionIndexforStr != sectionIndex) {
+        std::cout << "Enemy spotted: db2 = " << this->db2FileName
+                  << " recordIndex = " << this->currentRecord
+                  << " fieldIndex = " << this->currentField
+                  << " expected section of string = " << sectionIndex
+                  << " real section of string = " << sectionIdforStr
+                  << " string content = " << result << std::endl;
+    }*/
+
+    return result;
+}
+
+/* ------------------------
+ * WDC3RecordSparse
+ * -------------------------
+ */
+
+DB2Base::WDC3RecordSparse::WDC3RecordSparse(const std::shared_ptr<const DB2Base> &db2Class, int recordId,
+                                            unsigned char *recordPointer) :
+                                            db2Class(db2Class), recordId(recordId), recordPointer(recordPointer) {
+
+}
+std::vector<WDC3::DB2Base::WDCFieldValue> DB2Base::WDC3RecordSparse::readNextField(int arrayElementSizeInBytes) {
+    std::vector<WDC3::DB2Base::WDCFieldValue> result = {};
+
+    int arraySize = 1;
+
+    if (arrayElementSizeInBytes <= 0) {
+        guessFieldSizeForCommon(db2Class->getFieldInfo(currentFieldIndex)->field_size_bits,
+                                arrayElementSizeInBytes, arraySize);
+    } else {
+        arraySize = (db2Class->getFieldInfo(currentFieldIndex)->field_size_bits >> 8) / arrayElementSizeInBytes;
+    }
+
+    for (int i = 0; i < arraySize; i++) {
+        auto &fieldValue = result.emplace_back();
+        static_assert(sizeof (fieldValue) == 8);
+        fieldValue.v64 = 0;
+
+        memcpy(&fieldValue, &recordPointer[fieldOffset], arrayElementSizeInBytes);
+        fieldOffset += arrayElementSizeInBytes;
+    }
+    currentFieldIndex++;
+
+    return result;
+}
+
+std::string DB2Base::WDC3RecordSparse::readNextAsString() {
+    std::string result = std::string((char *)&recordPointer[fieldOffset]);
+    fieldOffset+=result.length()+1;
+
+    if (fieldOffset > db2Class->header->record_size) {
+        return "Reading a field resulted in buffer overflow";
+    }
+
+    currentFieldIndex++;
+    return result;
+}
+

@@ -11,34 +11,56 @@
 #include <vector>
 #include "DBDFile.h"
 #include "WDC3/DB2Base.h"
+#include "DBDFileStorage.h"
 
 class CSQLLiteImporter {
 public:
     CSQLLiteImporter(const std::string &databaseFile);
     ~CSQLLiteImporter();
-    void addTable(std::string &tableName, std::string db2File, std::string dbdFile);
+    void addTable(std::string &tableName, std::string db2File, std::shared_ptr<DBDFileStorage> fileDBDStorage);
 
 private:
     SQLite::Database m_sqliteDatabase;
     std::string m_databaseFile;
 
     void processWDC2(HFileContent fileContent){};
-    void processWDC3(std::string tableName, WDC3::DB2Base &db2Base, std::shared_ptr<DBDFile> m_dbdFile, DBDFile::BuildConfig &buildConfig);
+    void processWDC3(std::string tableName, std::shared_ptr<WDC3::DB2Base> db2Base,
+                     std::shared_ptr<DBDFile> m_dbdFile, DBDFile::BuildConfig *buildConfig);
 
 
     std::string generateTableCreateSQL(
         std::string tableName,
         std::shared_ptr<DBDFile> m_dbdFile,
-        DBDFile::BuildConfig &buildConfig,
+        std::shared_ptr<WDC3::DB2Base> db2Base,
+        DBDFile::BuildConfig *buildConfig,
 
         std::vector<std::string> &fieldNames, std::vector<std::string> &fieldDefaultValues
         );
 
-    bool readWDC3Record(int i, std::vector<std::string> &fieldValues, WDC3::DB2Base &db2Base,
-                        std::shared_ptr<DBDFile> &m_dbdFile, DBDFile::BuildConfig &buildConfig, int InlineIdIndex,
-                        const std::vector<int> &columnDefFieldIndexToFieldIndex,
-                        const std::vector<int> &columnDefIndexToSQLIndex
+    bool readWDC3Record(int i, int recordIdSqlIndex,
+                        std::vector<std::string> &fieldValues,
+                        std::shared_ptr<WDC3::DB2Base> db2Base,
+                        std::shared_ptr<DBDFile> &m_dbdFile,
+                        DBDFile::BuildConfig *buildConfig,
+
+                        const std::vector<int> &db2FieldIndexToSQLIndex,
+                        const std::vector<int> &dbdFieldIndexToSQLIndex
                         );
+
+
+    void generateFieldsFromDBDColumns(std::shared_ptr<DBDFile> &m_dbdFile,
+                                      const DBDFile::BuildConfig *buildConfig,
+                                      std::vector<std::string> &fieldNames,
+                                      std::vector<std::string> &sqlFieldDefaultValues,
+                                      std::string &tableCreateQuery);
+
+    void generateFieldsFromDB2Columns(
+            std::shared_ptr<WDC3::DB2Base>db2Base,
+            std::vector<std::string> &fieldNames,
+            std::vector<std::string> &sqlFieldDefaultValues,
+            std::string &tableCreateQuery);
+
+
 };
 
 

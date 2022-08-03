@@ -6,6 +6,7 @@
 #define DBIMPORTER_DBDFILE_H
 
 
+#include <vector>
 #include <string>
 #include <unordered_map>
 enum class FieldType { INT, FLOAT, STRING};
@@ -20,7 +21,6 @@ private:
     struct ColumnDef {
         FieldType type;
         std::string fieldName;
-//        size_t fieldSize;
 
         struct {
             std::string fieldName = "";
@@ -52,8 +52,8 @@ private:
 public:
     bool findBuildConfig(std::string buildVersionString, std::string layout, DBDFile::BuildConfig *&buildConfig);
     bool findBuildConfigByLayout(std::string layout, DBDFile::BuildConfig *&buildConfig_);
-    ColumnDef &getColumnDef(std::string &columnName) {
-        return columnDefs[columnName];
+    const ColumnDef *getColumnDef(std::string &columnName) const {
+        return &columnDefs.at(columnName);
     }
 private:
     enum class SectionMode { NONE, COLUMNS, BUILD};
