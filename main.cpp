@@ -4,7 +4,7 @@
 #include <locale>
 #include <filesystem>
 
-#include "DBDFile.h"
+#include "DBD/DBDFile.h"
 #include "WDC2/DB2Base.h"
 
 #include <csignal>
@@ -12,7 +12,7 @@
 
 
 #include "CSQLLiteImporter.h"
-#include "DBDFileStorage.h"
+#include "DBD/DBDFileStorage.h"
 
 namespace fs = std::filesystem;
 

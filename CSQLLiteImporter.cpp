@@ -11,7 +11,7 @@
 #include "WDC3/DB2Base.h"
 #include "WDC2/DB2Base.h"
 #include "3rdparty/SQLiteCpp/sqlite3/sqlite3.h"
-#include "DBDFileStorage.h"
+#include "DBD/DBDFileStorage.h"
 #include <algorithm>
 #include <type_traits>
 
@@ -24,6 +24,45 @@ CSQLLiteImporter::CSQLLiteImporter(const std::string &databaseFile) : m_database
 }
 
 
+
+void dumpDebugInfo(std::shared_ptr<WDC3::DB2Base> &db2Base, DBDFile::BuildConfig *buildConfig) const {
+    if (db2Base->getWDCHeader()->field_storage_info_size != 0) {
+        for (int i = 0; i < db2Base->getWDCHeader()->field_count; i++) {
+            decltype(buildConfig->columns)::value_type *dbdBuildColumnDef = nullptr;
+
+            if (buildConfig != nullptr) {
+                for (auto &columnDef: buildConfig->columns) {
+                    if (columnDef.columnIndex == i) {
+                        dbdBuildColumnDef = &columnDef;
+                        break;
+                    }
+                }
+            }
+
+            auto fieldInfo = db2Base->getFieldInfo(i);
+            if (fieldInfo->storage_type == WDC3::field_compression_bitpacked_indexed ||
+                fieldInfo->storage_type == WDC3::field_compression_bitpacked_indexed_array) {
+
+                std::cout << "pallete field "
+                          << (dbdBuildColumnDef != nullptr ? dbdBuildColumnDef->fieldName : "field_" +
+                                                                                            std::to_string(i))
+                          << " size bits = "
+                          << fieldInfo->field_size_bits
+                          << " dbd size bits = "
+                          << (dbdBuildColumnDef != nullptr ? dbdBuildColumnDef->bitSize : -1)
+                          << " additional_data_size bits = "
+                          << fieldInfo->additional_data_size
+                          << " bitpacked offset bits = "
+                          << fieldInfo->field_compression_bitpacked_indexed.bitpacking_offset_bits
+                          << " offset bits = "
+                          << fieldInfo->field_offset_bits
+                          << " array_count = "
+                          << fieldInfo->field_compression_bitpacked_indexed_array.array_count
+                          << std::endl;
+            }
+        }
+    }
+}
 
 void CSQLLiteImporter::addTable(std::string &tableName, std::string db2File, std::shared_ptr<DBDFileStorage> fileDBDStorage) {
     //Read DB2 into memory
@@ -85,47 +124,12 @@ void CSQLLiteImporter::addTable(std::string &tableName, std::string db2File, std
         }
 
         //TODO: HACK
-        /*
+
         if (db2Base->getWDCHeader()->flags.isSparse) return;
 
         //Debug info dump
-        if (db2Base->getWDCHeader()->field_storage_info_size != 0) {
-            for (int i = 0; i < db2Base->getWDCHeader()->field_count; i++) {
-                decltype(buildConfig->columns)::value_type *dbdBuildColumnDef = nullptr;
+//        dumpDebugInfo(db2Base, buildConfig);
 
-                if (buildConfig != nullptr) {
-                    for (auto &columnDef: buildConfig->columns) {
-                        if (columnDef.columnIndex == i) {
-                            dbdBuildColumnDef = &columnDef;
-                            break;
-                        }
-                    }
-                }
-
-                auto fieldInfo = db2Base->getFieldInfo(i);
-                if (fieldInfo->storage_type == WDC3::field_compression_bitpacked_indexed ||
-                    fieldInfo->storage_type == WDC3::field_compression_bitpacked_indexed_array) {
-
-                    std::cout << "pallete field "
-                              << (dbdBuildColumnDef != nullptr ? dbdBuildColumnDef->fieldName : "field_" +
-                                                                                                std::to_string(i))
-                              << " size bits = "
-                              << fieldInfo->field_size_bits
-                              << " dbd size bits = "
-                              << (dbdBuildColumnDef != nullptr ? dbdBuildColumnDef->bitSize : -1)
-                              << " additional_data_size bits = "
-                              << fieldInfo->additional_data_size
-                              << " bitpacked offset bits = "
-                              << fieldInfo->field_compression_bitpacked_indexed.bitpacking_offset_bits
-                              << " offset bits = "
-                              << fieldInfo->field_offset_bits
-                              << " array_count = "
-                              << fieldInfo->field_compression_bitpacked_indexed_array.array_count
-                              << std::endl;
-                }
-            }
-        }
-        */
 
         processWDC3(tableName, db2Base, dbdFile, buildConfig);
     }

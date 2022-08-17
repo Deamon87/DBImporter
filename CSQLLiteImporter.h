@@ -9,9 +9,9 @@
 #include <SQLiteCpp/Database.h>
 #include <memory>
 #include <vector>
-#include "DBDFile.h"
+#include "DBD/DBDFile.h"
 #include "WDC3/DB2Base.h"
-#include "DBDFileStorage.h"
+#include "DBD/DBDFileStorage.h"
 
 class CSQLLiteImporter {
 public:
@@ -59,8 +59,6 @@ private:
             std::vector<std::string> &fieldNames,
             std::vector<std::string> &sqlFieldDefaultValues,
             std::string &tableCreateQuery);
-
-
 };
 
 
