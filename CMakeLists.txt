@@ -29,11 +29,20 @@ include_directories(
         ${CMAKE_CURRENT_LIST_DIR}/3rdparty/SQLiteCpp/include
 ) 
 
-add_executable(DBImporter main.cpp DBD/DBDFile.cpp DBD/DBDFile.h
-        WDC2/DB2Base.cpp
-        WDC3/DB2Base.cpp
-        exporters/sqlite/CSQLLiteExporter.cpp exporters/sqlite/CSQLLiteExporter.h
-        DBD/DBDFileStorage.cpp DBD/DBDFileStorage.h importers/WDC3Importer.cpp importers/WDC3Importer.h importers/FieldInterchangeData.h)
+add_executable(DBImporter main.cpp
+        fileReaders/DBD/DBDFile.cpp
+        fileReaders/DBD/DBDFile.h
+        fileReaders/WDC2/DB2Base.cpp
+        fileReaders/WDC3/DB2Base.cpp
+        exporters/sqlite/CSQLLiteExporter.cpp
+        exporters/sqlite/CSQLLiteExporter.h
+        fileReaders/DBD/DBDFileStorage.cpp
+        fileReaders/DBD/DBDFileStorage.h
+        importers/WDC3/WDC3Importer.cpp
+        importers/WDC3/WDC3Importer.h
+        importers/FieldInterchangeData.h
+        utils/string_utils.h
+        utils/string_utils.cpp importers/CImporterClass.cpp importers/CImporterClass.h persistance/persistanceFile.h)
 
 if (NOT MSVC)
     find_library(DL_EXISTS dl)

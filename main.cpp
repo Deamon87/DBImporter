@@ -4,15 +4,11 @@
 #include <locale>
 #include <filesystem>
 
-#include "DBD/DBDFile.h"
-#include "WDC2/DB2Base.h"
-
 #include <csignal>
 #include <exception>
 
-
 #include "exporters/sqlite/CSQLLiteExporter.h"
-#include "DBD/DBDFileStorage.h"
+#include "fileReaders/DBD/DBDFileStorage.h"
 
 namespace fs = std::filesystem;
 

@@ -11,7 +11,7 @@ enum class FieldType { INT, FLOAT, STRING};
 
 struct fieldInterchangeData {
     std::string fieldName;
-    bool isIndex;
+    bool isId;
     FieldType fieldType;
 };
 

@@ -2,34 +2,17 @@
 // Created by deamon on 02.04.18.
 //
 
-#ifndef WEBWOWVIEWERCPP_DB2BASE_WDC3_H
-#define WEBWOWVIEWERCPP_DB2BASE_WDC3_H
+#ifndef WEBWOWVIEWERCPP_DB2BASE_H
+#define WEBWOWVIEWERCPP_DB2BASE_H
 
 #include <vector>
 #include <functional>
 #include <memory>
-#include <unordered_map>
+#include "../../persistance/persistanceFile.h"
 
-#ifndef _MSC_VER
-#define PACK( __Declaration__ ) __Declaration__ __attribute__((__packed__))
-#else
-#define PACK( __Declaration__ ) __pragma( pack(push, 1) ) __Declaration__ __pragma( pack(pop) )
-#endif
-
-
-typedef std::vector<unsigned char> FileContent;
-typedef std::shared_ptr<FileContent> HFileContent;
-namespace WDC3 {
-    struct WDC3Flags {
-        uint16_t isSparse : 1;
-        uint16_t flag0x2 : 1;
-        uint16_t hasNonInlineId : 1;
-
-    };
-
-    PACK(
-    struct wdc3_db2_header {
-        uint32_t magic;                  // 'WDC3'
+namespace WDC2 {
+    struct wdc2_db2_header {
+        uint32_t magic;                  // 'WDC2'
         uint32_t record_count;           // this is for all sections combined now
         uint32_t field_count;
         uint32_t record_size;
@@ -39,7 +22,7 @@ namespace WDC3 {
         uint32_t min_id;
         uint32_t max_id;
         uint32_t locale;                 // as seen in TextWowEnum
-        WDC3Flags flags;                  // possible values are listed in Known Flag Meanings
+        uint16_t flags;                  // possible values are listed in Known Flag Meanings
         uint16_t id_index;               // this is the index of the field containing ID values; this is ignored if flags & 0x04 != 0
         uint32_t total_field_count;      // from WDC1 onwards, this value seems to always be the same as the 'field_count' value
         uint32_t bitpacked_data_offset;  // relative position in record where bitpacked data begins; not important for parsing the file
@@ -47,26 +30,25 @@ namespace WDC3 {
         uint32_t field_storage_info_size;
         uint32_t common_data_size;
         uint32_t pallet_data_size;
-        uint32_t section_count;          // new to WDC2, this is number of sections of data
-    });
-    PACK(
-    struct wdc3_section_header {
-        uint64_t tact_key_hash;          // TactKeyLookup hash
+        uint32_t section_count;          // new to WDC2, this is number of sections of data (records + copy table + id list + relationship map = a section)
+    };
+
+    struct wdc2_section_header {
+        uint32_t wdc2_unk_header1;       // always 0 in Battle (8.0.1.26231) and unnamed in client binary
+        uint32_t wdc2_unk_header2;       // always 0 in Battle (8.0.1.26231) and unnamed in client binary
         uint32_t file_offset;            // absolute position to the beginning of the section
         uint32_t record_count;           // 'record_count' for the section
         uint32_t string_table_size;      // 'string_table_size' for the section
-        uint32_t offset_records_end;     // Offset to the spot where the records end in a file with an offset map structure;
-        uint32_t id_list_size;           // Size of the list of ids present in the section
-        uint32_t relationship_data_size; // Size of the relationship data in the section
-        uint32_t offset_map_id_count;    // Count of ids present in the offset map in the section
-        uint32_t copy_table_count;       // Count of the number of deduplication entries (you can multiply by 8 to mimic the old 'copy_table_size' field)
-    });
+        uint32_t copy_table_size;
+        uint32_t offset_map_offset;      // Offset to array of struct {uint32_t offset; uint16_t size;}[max_id - min_id + 1];
+        uint32_t id_list_size;           // List of ids present in the DB file
+        uint32_t relationship_data_size;
+    };
 
-    PACK(
     struct field_structure {
         uint16_t size;
         uint16_t offset;
-    });
+    };
 
     enum field_compression {
         // None -- the field is a 8-, 16-, 32-, or 64-bit integer in the record data
@@ -94,12 +76,9 @@ namespace WDC3 {
         // data.  This index is used as an index into the corresponding section in
         // pallet_data.  The pallet_data section is an array of uint32_t[array_count],
         //
-        field_compression_bitpacked_indexed_array,
-        field_compression_bitpacked_signed
-
+            field_compression_bitpacked_indexed_array,
     };
 
-    PACK(
     struct field_storage_info {
         uint16_t field_offset_bits;
         uint16_t field_size_bits; // very important for reading bitpacked fields; size is the sum of all array pieces in bits - for example, uint32[3] will appear here as '96'
@@ -137,17 +116,16 @@ namespace WDC3 {
                 uint32_t unk_or_unused3;
             } _default;
         };
-    });
+    };
 
 //Section related structs
     struct record_data {
-        unsigned char *data;
+        char *data;
     };
-    PACK(
     struct offset_map_entry {
         uint32_t offset;
         uint16_t size;
-    });
+    };
 
     struct copy_table_entry {
         uint32_t id_of_new_row;
@@ -164,7 +142,7 @@ namespace WDC3 {
     };
 
     struct relationship_mapping {
-        int32_t num_entries;
+        uint32_t num_entries;
         uint32_t min_id;
         uint32_t max_id;
         relationship_entry *entries = nullptr;
@@ -172,106 +150,38 @@ namespace WDC3 {
 
     struct section {
         std::vector<record_data> records;
-        unsigned char *string_data = nullptr;
+        char *string_data = nullptr;
 
-        unsigned char *variable_record_data = nullptr;
+        char *variable_record_data = nullptr;
         offset_map_entry *offset_map = nullptr;
 
         uint32_t *id_list = nullptr;
         copy_table_entry *copy_table = nullptr;
 
         relationship_mapping relationship_map;
-        uint32_t *offset_map_id_list;
-
-        bool isEncoded = false;
-
-        std::unordered_map<int, int> perRecordIndexRelation = {};
     };
 
-    class DB2Base : public std::enable_shared_from_this<WDC3::DB2Base> {
-        class WDC3Record;
-        class WDC3RecordSparse;
+    class DB2Base {
     public:
-        DB2Base() = default;
-
         void process(HFileContent db2File, const std::string &fileName);
 
         bool getIsLoaded() { return m_loaded; };
-        std::string getLayoutHash();
 
-//        bool readRecordByIndex(int index, int minFieldNum, int fieldsToRead,
-//                               std::function<void(uint32_t &recordId, int fieldNum, int subIndex, int sectionNum, unsigned char *&data, size_t length)> callback);
-        std::shared_ptr<WDC3Record> getRecord(int recordIndex);
-        std::shared_ptr<WDC3RecordSparse> getSparseRecord(int recordIndex);
+        int readRecord(int id, bool useRelationMappin, int minFieldNum, int fieldsToRead,
+                       std::function<void(int fieldNum, int stringOffset, char *data, size_t length)> callback);
+
+        bool readRecordByIndex(int index, int minFieldNum, int fieldsToRead,
+                               std::function<void(int fieldNum, int fieldOffset, char *data, size_t length)> callback);
 
         int getRecordCount() { return header->record_count; };
-        int isSparse();
-        bool hasRelationshipField() { return hasRelationShipField; };
 
-        int getRelationRecord(int recordIndex);
-        int getRelationRecord(int recordIndexInSection, int sectionIndex);
-        static void guessFieldSizeForCommon(int filedSizeBits, int &elementSizeBytes, int &arraySize);
+        int getIdForRecord(int recordIndex) { return sections[0].id_list[recordIndex]; };
 
-        int iterateOverCopyRecords(const std::function<void(int oldRecId, int newRecId)> &iterateFunction);
+        std::string readString(int index);
 
-        const field_storage_info * const getFieldInfo(uint32_t fieldIndex) const;
-
-        const WDC3::wdc3_db2_header* const getWDCHeader() {
-            return this->header;
-        }
-
-        union WDCFieldValue {
-            uint64_t v64;
-            int64_t v64s;
-            uint32_t v32;
-            int32_t v32s;
-            float v_f;
-        };
     private:
-        class WDC3Record {
-        private:
-            WDC3Record(const WDC3Record&) = delete;
-            WDC3Record(const WDC3Record&&) = delete;
-            WDC3Record() = delete;
-
-            std::shared_ptr<DB2Base const> db2Class;
-            int recordId;
-            unsigned char *recordPointer;
-
-            uint32_t recordIndex;
-            uint32_t sectionIndex;
-
-        public:
-            WDC3Record(std::shared_ptr<DB2Base const> db2Class,
-                       int recordId,
-                       uint32_t recordIndex,
-                       unsigned char *recordPointer,
-                       uint32_t sectionIndex);
-
-            int getRecordId() { return recordId; }
-            [[nodiscard]] std::vector<WDC3::DB2Base::WDCFieldValue> getField(int fieldIndex, int externalArraySize, int externalElemSizeBytes) const;
-            [[nodiscard]] std::string readString(int fieldIndex) const;
-        };
-        class WDC3RecordSparse {
-        private:
-            const std::shared_ptr<DB2Base const> db2Class;
-            int recordId;
-            uint32_t fieldOffset = 0;
-            uint32_t currentFieldIndex = 0;
-            unsigned char *recordPointer;
-        public:
-            WDC3RecordSparse(const std::shared_ptr<DB2Base const> &db2Class,
-                             int recordId,
-                             unsigned char *recordPointer);
-
-            int getRecordId() { return recordId; }
-            [[nodiscard]] std::vector<WDC3::DB2Base::WDCFieldValue> readNextField(int arrayElementSizeInBytes) ;
-            [[nodiscard]] std::string readNextAsString() ;
-        };
-
         bool m_loaded = false;
         HFileContent db2File;
-        std::string db2FileName;
         unsigned char *fileData;
         int currentOffset;
         int bytesRead;
@@ -295,29 +205,22 @@ namespace WDC3 {
         template<typename T>
         inline void readValues(T *&value, int count) {
             static_assert(!std::is_pointer<T>::value, "T is a pointer");
-            if (count > 0) {
-
-                value = (T *) &(((unsigned char *) fileData)[currentOffset]);
-                currentOffset += count * sizeof(T);
-                bytesRead += count * sizeof(T);
-            }
+            value = (T *) &(((unsigned char *) fileData)[currentOffset]);
+            currentOffset += count * sizeof(T);
+            bytesRead += count * sizeof(T);
         }
 
 //fields
-        wdc3_db2_header *header;
-        wdc3_section_header *section_headers;
+        wdc2_db2_header *header;
+        wdc2_section_header *section_headers;
         field_structure *fields;
         field_storage_info *field_info;
         int fieldInfoLength = -1;
-
-        bool hasRelationShipField = false;
-
-        //per field, per ID
-        std::vector<std::unordered_map<int32_t,uint32_t>> commonDataHashMap;
-        std::vector<std::vector<int32_t>> palleteDataArray;
+        char *pallet_data;
+        char *common_data;
         std::vector<section> sections;
 
-        bool getSectionIndex(int recordIndex, int &sectionIndex, int &indexWithinSection) const;
+
     };
 }
 

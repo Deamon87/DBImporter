@@ -9,7 +9,7 @@
 #include <vector>
 #include <string>
 #include <unordered_map>
-#include "../importers/FieldInterchangeData.h"
+#include "../../importers/FieldInterchangeData.h"
 
 
 class DBDFile {
@@ -53,7 +53,7 @@ private:
 public:
     bool findBuildConfig(std::string buildVersionString, std::string layout, DBDFile::BuildConfig *&buildConfig);
     bool findBuildConfigByLayout(std::string layout, DBDFile::BuildConfig *&buildConfig_);
-    const ColumnDef *getColumnDef(std::string &columnName) const {
+    const ColumnDef *getColumnDef(const std::string &columnName) const {
         return &columnDefs.at(columnName);
     }
 private:
