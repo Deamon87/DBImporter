@@ -9,7 +9,8 @@
 #include <vector>
 #include <string>
 #include <unordered_map>
-enum class FieldType { INT, FLOAT, STRING};
+#include "../importers/FieldInterchangeData.h"
+
 
 class DBDFile {
 public:
@@ -60,7 +61,7 @@ private:
 
     void parseColumnDefLine(std::string &line);
     void parseColumnBuildDefLine(std::string &line, BuildConfig &buildConfig);
-    void CommitBuildConfig(SectionMode currentMode, BuildConfig &buildConfig);
+    void commitBuildConfig(SectionMode currentMode, BuildConfig &buildConfig);
 };
 
 

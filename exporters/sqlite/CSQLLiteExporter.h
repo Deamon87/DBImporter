@@ -2,21 +2,21 @@
 // Created by deamon on 16.12.19.
 //
 
-#ifndef DBIMPORTER_CSQLLITEIMPORTER_H
-#define DBIMPORTER_CSQLLITEIMPORTER_H
+#ifndef DBIMPORTER_CSQLLITEEXPORTER_H
+#define DBIMPORTER_CSQLLITEEXPORTER_H
 
 #include <string>
-#include <SQLiteCpp/Database.h>
+#include "SQLiteCpp/Database.h"
 #include <memory>
 #include <vector>
-#include "DBD/DBDFile.h"
-#include "WDC3/DB2Base.h"
-#include "DBD/DBDFileStorage.h"
+#include "../../DBD/DBDFile.h"
+#include "../../WDC3/DB2Base.h"
+#include "../../DBD/DBDFileStorage.h"
 
-class CSQLLiteImporter {
+class CSQLLiteExporter {
 public:
-    CSQLLiteImporter(const std::string &databaseFile);
-    ~CSQLLiteImporter();
+    CSQLLiteExporter(const std::string &databaseFile);
+    ~CSQLLiteExporter();
     void addTable(std::string &tableName, std::string db2File, std::shared_ptr<DBDFileStorage> fileDBDStorage);
 
 private:
@@ -62,4 +62,4 @@ private:
 };
 
 
-#endif //DBIMPORTER_CSQLLITEIMPORTER_H
+#endif //DBIMPORTER_CSQLLITEEXPORTER_H

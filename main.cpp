@@ -11,7 +11,7 @@
 #include <exception>
 
 
-#include "CSQLLiteImporter.h"
+#include "exporters/sqlite/CSQLLiteExporter.h"
 #include "DBD/DBDFileStorage.h"
 
 namespace fs = std::filesystem;
@@ -86,9 +86,10 @@ int main(int argc, char **argv) {
     std::string definitionsPath = std::string(argv[2]);
     std::string DB2Folder = std::string(argv[3]);
 
-    CSQLLiteImporter csqlLiteImporter = CSQLLiteImporter(std::string(argv[4]));
+    CSQLLiteExporter csqlLiteImporter = CSQLLiteExporter(std::string(argv[4]));
     std::shared_ptr<DBDFileStorage> fileDBDStorage = std::make_shared<DBDFileStorage>(definitionsPath);
 
+    //Process DB2 files
     for (const auto& entry : fs::directory_iterator(DB2Folder)) {
         const auto filenameStr = entry.path().filename().string();
         if (entry.status().type() == fs::file_type::regular) {

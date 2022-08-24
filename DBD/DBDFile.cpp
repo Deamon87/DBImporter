@@ -22,7 +22,7 @@ void tokenize(std::string const &str, const std::string delim,
     }
 }
 
-void DBDFile::CommitBuildConfig(SectionMode currentMode, BuildConfig &buildConfig) {
+void DBDFile::commitBuildConfig(SectionMode currentMode, BuildConfig &buildConfig) {
     if (currentMode == SectionMode::BUILD) {
 
         int columnIndex = 0;
@@ -46,7 +46,7 @@ DBDFile::DBDFile(std::string fileName) {
     BuildConfig buildConfig;
     while (std::getline(infile, line)) {
         if (line == "") {
-            CommitBuildConfig(currentMode, buildConfig);
+            commitBuildConfig(currentMode, buildConfig);
 
             currentMode = SectionMode ::NONE;
             continue;
@@ -104,7 +104,7 @@ DBDFile::DBDFile(std::string fileName) {
                 break;
         }
     }
-    CommitBuildConfig(currentMode, buildConfig);
+    commitBuildConfig(currentMode, buildConfig);
 }
 
 void DBDFile::parseColumnDefLine(std::string &line) {

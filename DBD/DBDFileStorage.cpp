@@ -4,6 +4,7 @@
 
 #include <cassert>
 #include <filesystem>
+#include <iostream>
 #include "DBDFileStorage.h"
 
 namespace fs = std::filesystem;
@@ -38,6 +39,16 @@ uint32_t SStrHash (char const* string, bool no_caseconv, uint32_t seed)
     return seed ? seed : 1;
 }
 
+unsigned int hexToInt(const std::string &value) {
+    std::stringstream ss;
+
+    uint32_t returnValue;
+    ss << std::hex << value;
+    ss >> returnValue;
+
+    return returnValue;
+}
+
 DBDFileStorage::DBDFileStorage(std::string &directoryPath) : m_directoryPath(directoryPath) {
     loadDBDFiles();
 }
@@ -65,9 +76,6 @@ void DBDFileStorage::loadDBDFiles() {
                 continue;
             }
 
-//            dbdFileName = "WMOAreaTable";
-//            version = "8.0.1.26231";
-
             std::string tableName = dbdFileName;
             addOrReplaceDBDFile(tableName, m_directoryPath+dbdFileName+".dbd");
         }
@@ -75,7 +83,23 @@ void DBDFileStorage::loadDBDFiles() {
 }
 
 void DBDFileStorage::addOrReplaceDBDFile(std::string tableName, std::string dbdFilePath) {
+
     uint32_t tableHash = SStrHash(tableName.c_str(), false, 0);
+
+    //Specially named file
+    const std::string tablehash_str = "tablehash_";
+    if (tableName.substr(0, tablehash_str.size()) == tablehash_str) {
+        std::string hex = tableName.substr(tablehash_str.size(), tableName.size());
+
+        uint32_t tableHash = 0;
+        try {
+            tableHash = hexToInt(hex);
+        } catch (...) {
+            std::cout << "incorrectly named tablehash_*.dbd file found = " << tableName
+                << ". Expected hex value representing tablehash after 'tablehash_'" << std::endl;
+            return;
+        }
+    }
 
     std::shared_ptr<DBDFile> m_dbdFile = std::make_shared<DBDFile>(dbdFilePath);
 

@@ -15,6 +15,7 @@ public:
     DBDFileStorage(std::string &directoryPath);
 
     void addOrReplaceDBDFile(std::string tableName, std::string dbdFilePath);
+
     std::shared_ptr<DBDFile> getDBDFile(std::string tableName);
     std::shared_ptr<DBDFile> getDBDFile(uint32_t tableHash);
     std::string getTableName(std::string db2FileName);

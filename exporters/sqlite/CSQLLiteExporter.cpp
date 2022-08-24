@@ -5,18 +5,18 @@
 //#include <sqlite3.h>
 #include <iostream>
 #include <fstream>
-#include <SQLiteCpp/Transaction.h>
-#include <SQLiteCpp/Database.h>
-#include "CSQLLiteImporter.h"
-#include "WDC3/DB2Base.h"
-#include "WDC2/DB2Base.h"
-#include "3rdparty/SQLiteCpp/sqlite3/sqlite3.h"
-#include "DBD/DBDFileStorage.h"
+#include "SQLiteCpp/Transaction.h"
+#include "SQLiteCpp/Database.h"
+#include "CSQLLiteExporter.h"
+#include "../../WDC3/DB2Base.h"
+#include "../../WDC2/DB2Base.h"
+#include "../../3rdparty/SQLiteCpp/sqlite3/sqlite3.h"
+#include "../../DBD/DBDFileStorage.h"
 #include <algorithm>
 #include <type_traits>
 
 
-CSQLLiteImporter::CSQLLiteImporter(const std::string &databaseFile) : m_databaseFile(databaseFile), m_sqliteDatabase(":memory:", SQLite::OPEN_READWRITE|SQLite::OPEN_CREATE) {
+CSQLLiteExporter::CSQLLiteExporter(const std::string &databaseFile) : m_databaseFile(databaseFile), m_sqliteDatabase(":memory:", SQLite::OPEN_READWRITE | SQLite::OPEN_CREATE) {
     //Tell database that often writes to disk is not necessary
     char *sErrMsg = "";
     sqlite3_exec(m_sqliteDatabase.getHandle(), "PRAGMA synchronous = OFF", NULL, NULL, &sErrMsg);
@@ -24,7 +24,7 @@ CSQLLiteImporter::CSQLLiteImporter(const std::string &databaseFile) : m_database
 }
 
 
-
+/*
 void dumpDebugInfo(std::shared_ptr<WDC3::DB2Base> &db2Base, DBDFile::BuildConfig *buildConfig) const {
     if (db2Base->getWDCHeader()->field_storage_info_size != 0) {
         for (int i = 0; i < db2Base->getWDCHeader()->field_count; i++) {
@@ -63,8 +63,9 @@ void dumpDebugInfo(std::shared_ptr<WDC3::DB2Base> &db2Base, DBDFile::BuildConfig
         }
     }
 }
+ */
 
-void CSQLLiteImporter::addTable(std::string &tableName, std::string db2File, std::shared_ptr<DBDFileStorage> fileDBDStorage) {
+void CSQLLiteExporter::addTable(std::string &tableName, std::string db2File, std::shared_ptr<DBDFileStorage> fileDBDStorage) {
     //Read DB2 into memory
     std::ifstream cache_file(db2File, std::ios::in |std::ios::binary);
     HFileContent vec;
@@ -125,17 +126,14 @@ void CSQLLiteImporter::addTable(std::string &tableName, std::string db2File, std
 
         //TODO: HACK
 
-        if (db2Base->getWDCHeader()->flags.isSparse) return;
-
         //Debug info dump
-//        dumpDebugInfo(db2Base, buildConfig);
-
+        //dumpDebugInfo(db2Base, buildConfig);
 
         processWDC3(tableName, db2Base, dbdFile, buildConfig);
     }
 }
 
-void CSQLLiteImporter::processWDC3(std::string tableName,
+void CSQLLiteExporter::processWDC3(std::string tableName,
                                    std::shared_ptr<WDC3::DB2Base> db2Base,
                                    std::shared_ptr<DBDFile> dbdFile,
                                    DBDFile::BuildConfig *buildConfig) {
@@ -145,7 +143,6 @@ void CSQLLiteImporter::processWDC3(std::string tableName,
     int idSqlIndex = -1;
 
     int columnSize ;
-
 
     if (buildConfig != nullptr) {
         columnSize = buildConfig->columns.size();
@@ -306,7 +303,7 @@ void CSQLLiteImporter::processWDC3(std::string tableName,
     }
 }
 
-bool CSQLLiteImporter::readWDC3Record(int recordIndex,
+bool CSQLLiteExporter::readWDC3Record(int recordIndex,
                                       int recordIdSqlIndex,
                                       std::vector<std::string> &fieldValues,
                                       std::shared_ptr<WDC3::DB2Base> db2Base,
@@ -472,12 +469,12 @@ std::string toLowerCase(std::string s) {
     return s;
 }
 
-std::string CSQLLiteImporter::generateTableCreateSQL(std::string tableName,
-    std::shared_ptr<DBDFile> m_dbdFile,
-    std::shared_ptr<WDC3::DB2Base> db2Base,
-    DBDFile::BuildConfig *buildConfig,
-    std::vector<std::string> &fieldNames,
-    std::vector<std::string> &sqlFieldDefaultValues) {
+std::string CSQLLiteExporter::generateTableCreateSQL(std::string tableName,
+                                                     std::shared_ptr<DBDFile> m_dbdFile,
+                                                     std::shared_ptr<WDC3::DB2Base> db2Base,
+                                                     DBDFile::BuildConfig *buildConfig,
+                                                     std::vector<std::string> &fieldNames,
+                                                     std::vector<std::string> &sqlFieldDefaultValues) {
 
     std::string tableCreateQuery = "CREATE TABLE IF NOT EXISTS "+tableName+" (";
 
@@ -495,11 +492,11 @@ std::string CSQLLiteImporter::generateTableCreateSQL(std::string tableName,
     return tableCreateQuery;
 }
 
-void CSQLLiteImporter::generateFieldsFromDBDColumns(std::shared_ptr<DBDFile> &m_dbdFile,
-                                                            const DBDFile::BuildConfig *buildConfig,
-                                                            std::vector<std::string> &fieldNames,
-                                                            std::vector<std::string> &sqlFieldDefaultValues,
-                                                            std::string &tableCreateQuery) {
+void CSQLLiteExporter::generateFieldsFromDBDColumns(std::shared_ptr<DBDFile> &m_dbdFile,
+                                                    const DBDFile::BuildConfig *buildConfig,
+                                                    std::vector<std::string> &fieldNames,
+                                                    std::vector<std::string> &sqlFieldDefaultValues,
+                                                    std::string &tableCreateQuery) {
     int sqlIndex = 0;
     for (int i = 0; i < buildConfig->columns.size(); i++) {
         auto &columnDef = buildConfig->columns[i];
@@ -574,7 +571,7 @@ void CSQLLiteImporter::generateFieldsFromDBDColumns(std::shared_ptr<DBDFile> &m_
     }
 }
 
-void CSQLLiteImporter::generateFieldsFromDB2Columns(
+void CSQLLiteExporter::generateFieldsFromDB2Columns(
                 std::shared_ptr<WDC3::DB2Base>db2Base,
                 std::vector<std::string> &fieldNames,
                 std::vector<std::string> &sqlFieldDefaultValues,
@@ -632,6 +629,6 @@ void CSQLLiteImporter::generateFieldsFromDB2Columns(
     }
 }
 
-CSQLLiteImporter::~CSQLLiteImporter() {
+CSQLLiteExporter::~CSQLLiteExporter() {
     m_sqliteDatabase.backup(m_databaseFile.c_str(), SQLite::Database::BackupType::Save);
 }
