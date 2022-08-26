@@ -29,7 +29,7 @@ private:
         std::vector<fieldInterchangeData> &fieldDefs,
         const std::function<void(const std::function <void(std::vector<std::string>&)>& )> &fieldValueIterator,
         const std::function<void(const std::function <void(int, int)>& )> &copyIterator
-    );
+    ) override;
 
 private:
     std::string generateCreateSQL(const std::string &tableName,

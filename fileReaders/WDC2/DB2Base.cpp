@@ -127,7 +127,7 @@ bool DB2Base::readRecordByIndex(int index, int minFieldNum, int fieldsToRead,
                 char * recordPointer = sectionDef.records[index].data;
                 char buffer[128];
 
-                int byteOffset = fieldInfo.additional_data_size * index + (fieldInfo.field_offset_bits) >> 3;
+                int byteOffset = fieldInfo.additional_data_size * index + (fieldInfo.field_offset_bits >> 3);
                 int bitOffset = fieldInfo.field_size_bits & 8;
                 int bitesToRead = fieldInfo.field_size_bits;
 

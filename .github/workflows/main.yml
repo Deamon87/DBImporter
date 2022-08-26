@@ -6,12 +6,13 @@
 name: CMake Build Matrix
 
 # Controls when the action will run. Triggers the workflow on push
-on: 
+on:
   push:
   pull_request:
+    branches: [ master ]
   release:
-    # tags:
-    # - 'v*' # Push events to matching v*, i.e. v1.0, v20.15.10
+    types: [created]
+
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
@@ -29,6 +30,7 @@ jobs:
             os: windows-latest,
             artifact: "windows_msvc.7z",
             build_type: "Release",
+            cmake_defines: "",
             cc: "cl",
             cxx: "cl",
             environment_script: "C:/Program Files (x86)/Microsoft Visual Studio/2019/Enterprise/VC/Auxiliary/Build/vcvars64.bat",
@@ -50,6 +52,7 @@ jobs:
             os: ubuntu-latest,
             artifact: "ubuntu_gcc.7z",
             build_type: "Release",
+            cmake_defines: "",
             cc: "gcc",
             cxx: "g++",
             archiver: "7z a",
@@ -60,16 +63,18 @@ jobs:
             os: ubuntu-latest,
             artifact: "ubuntu_gcc9.7z",
             build_type: "Release",
+            cmake_defines: "",
             cc: "gcc",
             cxx: "g++",
             archiver: "7z a",
             generators: "Ninja"
           }
-        - {
+          - {
             name: "macOS Latest Clang",
             os: macos-latest,
             artifact: "macos_clang.7z",
             build_type: "Release",
+            cmake_defines: "-DCMAKE_OSX_ARCHITECTURES=\"arm64;x86_64\"",
             cc: "clang",
             cxx: "clang++",
             archiver: "7za a",
@@ -154,6 +159,7 @@ jobs:
             -B . \
             -DCMAKE_BUILD_TYPE=${{ matrix.config.build_type }} \
             -G "${{ matrix.config.generators }}" \
+            ${{ matrix.config.cmake_defines}} \
             -DCMAKE_INSTALL_PREFIX:PATH=instdir
       - name: Build
         shell: bash

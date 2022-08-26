@@ -352,7 +352,7 @@ std::string DB2Base::getLayoutHash() {
     auto to_upper = [&locale] (char ch) { return std::use_facet<std::ctype<char>>(locale).toupper(ch); };
 
     std::transform(resStr.begin(), resStr.end(), resStr.begin(), to_upper);
-    std::cout << "layoutHash = " << resStr << std::endl;
+//    std::cout << "layoutHash = " << resStr << std::endl;
     return resStr;
 }
 

@@ -5,6 +5,7 @@
 #include <cassert>
 #include <filesystem>
 #include <iostream>
+#include <sstream>
 #include "DBDFileStorage.h"
 
 namespace fs = std::filesystem;
