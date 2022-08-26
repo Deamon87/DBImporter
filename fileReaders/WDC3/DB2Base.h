@@ -263,7 +263,7 @@ namespace WDC3 {
                              unsigned char *recordPointer);
 
             int getRecordId() { return recordId; }
-            [[nodiscard]] std::vector<WDC3::DB2Base::WDCFieldValue> readNextField(int arrayElementSizeInBytes) ;
+            [[nodiscard]] std::vector<WDC3::DB2Base::WDCFieldValue> readNextField(int arrayElementSizeInBytes, int arraySize);
             [[nodiscard]] std::string readNextAsString() ;
         };
 

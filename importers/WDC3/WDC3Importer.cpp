@@ -49,6 +49,7 @@ void dumpDebugInfo(std::shared_ptr<WDC3::DB2Base> &db2Base, DBDFile::BuildConfig
 void WDC3Importer::processWDC3(const std::string &tableName,
                                const std::shared_ptr<WDC3::DB2Base> &db2Base,
                                const std::shared_ptr<DBDFile> &dbdFile,
+                               IExporter * exporter,
                                const DBDFile::BuildConfig *buildConfig) {
 
     int columnSize ;
@@ -81,9 +82,17 @@ void WDC3Importer::processWDC3(const std::string &tableName,
         }
     }
 
-    int recordIndex = 0;
-    auto readRecordsLambda = [&](std::vector<std::string> &fieldValues) mutable -> bool {
-        for (int i = recordIndex; i < db2Base->getRecordCount(); i++) {
+    std::vector<std::string> fieldValues = {};
+    std::vector<std::string> fieldDefaultValues = std::vector<std::string>(fieldDefs.size(), "");
+    for (int i = 0; i < fieldDefs.size(); i++) {
+        if (fieldDefs[i].fieldType != FieldType::STRING) {
+            fieldDefaultValues[i] = "0";
+        }
+    }
+
+    auto readRecordsLambda = [&](const std::function<void(std::vector<std::string> &fieldValues)> &consumer) -> void {
+        fieldValues = fieldDefaultValues;
+        for (int i = 0; i < db2Base->getRecordCount(); i++) {
             bool recordRead = readWDC3Record(i, exportIdIndex,
                                              fieldValues,
                                              db2Base, dbdFile,
@@ -92,14 +101,18 @@ void WDC3Importer::processWDC3(const std::string &tableName,
                                              dbdFieldIndexToOutputFieldIndex);
 
             if (recordRead) {
-                recordIndex = i;
-                return true;
+                consumer(fieldValues);
+                fieldValues = fieldDefaultValues;
             }
         }
-
-        return false;
     };
 
+    auto copyLambda = [&](const std::function<void (int fromId, int toId)> &consumer) -> void {
+        db2Base->iterateOverCopyRecords([&consumer](int fromId, int toId) -> void {
+            consumer(fromId, toId);
+        });
+    };
+    exporter->addTableData(tableName, fieldDefs, readRecordsLambda, copyLambda);
 }
 
 std::vector<fieldInterchangeData>
@@ -122,9 +135,18 @@ WDC3Importer::generateFieldsFromDB2Columns(std::shared_ptr<WDC3::DB2Base> db2Bas
 
         db2FieldIndexToOutputFieldIndex[i] = exportFieldIndex;
 
-        if (db2Field->storage_type == WDC3::field_compression_bitpacked_indexed_array &&
-            db2Field->field_compression_bitpacked_indexed_array.array_count > 1) {
-            for (int j = 0; j < db2Field->field_compression_bitpacked_indexed_array.array_count; j++) {
+        int arrayCount = 1;
+        if (db2Field->storage_type == WDC3::field_compression_bitpacked_indexed_array) {
+            arrayCount = db2Field->field_compression_bitpacked_indexed_array.array_count;
+        }
+
+        if (db2Field->storage_type == WDC3::field_compression_none) {
+            int fieldSizeInByte = 0;
+            WDC3::DB2Base::guessFieldSizeForCommon(db2Field->field_size_bits, fieldSizeInByte, arrayCount);
+        }
+
+        if (arrayCount > 1) {
+            for (int j = 0; j < arrayCount; j++) {
                 std::string columnName = "field_" + std::to_string(i) + "_" + std::to_string(j);
 
                 result.push_back({
@@ -199,6 +221,7 @@ WDC3Importer::generateFieldsFromDBDColumns(const std::shared_ptr<DBDFile> &m_dbd
         }
 
         if (columnDef.arraySize > 1) {
+            db2FieldIndexToOutputFieldIndex[db2FieldIndex++] = exportFieldIndex;
             for (int j = 0; j < columnDef.arraySize; j++) {
                 auto *columnTypeDef = m_dbdFile->getColumnDef(columnDef.fieldName);
 
@@ -212,7 +235,6 @@ WDC3Importer::generateFieldsFromDBDColumns(const std::shared_ptr<DBDFile> &m_dbd
 
                 dbdFieldIndexToOutputFieldIndex[i] = exportFieldIndex++;
             }
-            db2FieldIndexToOutputFieldIndex[i] = db2FieldIndex++;
         } else {
             auto *columnTypeDef = m_dbdFile->getColumnDef(columnDef.fieldName);
 
@@ -221,7 +243,8 @@ WDC3Importer::generateFieldsFromDBDColumns(const std::shared_ptr<DBDFile> &m_dbd
                      columnDef.isId,
                      columnTypeDef->type,
             });
-            db2FieldIndexToOutputFieldIndex[i] = db2FieldIndex++;
+            db2FieldIndexToOutputFieldIndex[db2FieldIndex++] = exportFieldIndex;
+            dbdFieldIndexToOutputFieldIndex[i] = exportFieldIndex++;
         }
     }
 
@@ -247,7 +270,7 @@ bool WDC3Importer::readWDC3Record(const int recordIndex,
         }
 
         for (int i = 0; i < db2Base->getWDCHeader()->field_count; i++) {
-            decltype(buildConfig->columns)::value_type *dbdBuildColumnDef = nullptr;
+            const decltype(buildConfig->columns)::value_type * dbdBuildColumnDef = nullptr;
 
             decltype(std::declval<DBDFile>().getColumnDef(std::declval<std::string &>()))
                     dbdGlobalColumnDef = nullptr;
@@ -328,7 +351,7 @@ bool WDC3Importer::readWDC3Record(const int recordIndex,
         }
 
         for (int i = 0; i < db2Base->getWDCHeader()->field_count; i++) {
-            decltype(buildConfig->columns)::value_type *dbdBuildColumnDef = nullptr;
+            const decltype(buildConfig->columns)::value_type *dbdBuildColumnDef = nullptr;
 
             decltype(std::declval<DBDFile>().getColumnDef(std::declval<std::string &>()))
                     dbdGlobalColumnDef = nullptr;
@@ -343,31 +366,32 @@ bool WDC3Importer::readWDC3Record(const int recordIndex,
                 dbdGlobalColumnDef = m_dbdFile->getColumnDef(dbdBuildColumnDef->fieldName);
             }
 
-            if (dbdGlobalColumnDef->type == FieldType::STRING) {
-                auto stringVal = sparseRecord->readNextAsString();
-                fieldValues[db2FieldIndexToSQLIndex[i]] = stringVal;
-            } else {
-                int fieldSizeInBytes = dbdBuildColumnDef->bitSize >> 3;
-                if (dbdGlobalColumnDef->type == FieldType::FLOAT) {
-                    fieldSizeInBytes = 4;
-                }
-
-                int arraySize = 1;
-                if (dbdBuildColumnDef->arraySize > 1) {
-                    arraySize = dbdBuildColumnDef->arraySize;
-                }
-
-                for (int j = 0; j < arraySize; j++) {
-                    auto valueVector = sparseRecord->readNextField(fieldSizeInBytes);
-
-                    if (dbdGlobalColumnDef->type != FieldType::FLOAT) {
-                        fieldValues[db2FieldIndexToSQLIndex[i] + j] = std::to_string(valueVector[0].v32);
-                    } else {
-                        fieldValues[db2FieldIndexToSQLIndex[i] + j] = std::to_string(valueVector[0].v_f);
+            int arraySize = 1;
+            int fieldSizeInBytes = 0;
+            if (dbdGlobalColumnDef != nullptr) {
+                if (dbdGlobalColumnDef->type == FieldType::STRING) {
+                    auto stringVal = sparseRecord->readNextAsString();
+                    fieldValues[db2FieldIndexToSQLIndex[i]] = stringVal;
+                    continue;
+                } else {
+                    fieldSizeInBytes = dbdBuildColumnDef->bitSize >> 3;
+                    if (dbdGlobalColumnDef->type == FieldType::FLOAT) {
+                        fieldSizeInBytes = 4;
+                    }
+                    if (dbdBuildColumnDef->arraySize > 1) {
+                        arraySize = dbdBuildColumnDef->arraySize;
                     }
                 }
             }
 
+            auto valueVector = sparseRecord->readNextField(fieldSizeInBytes, arraySize);
+            for (int j = 0; j < valueVector.size(); j++) {
+                if (dbdGlobalColumnDef->type != FieldType::FLOAT) {
+                    fieldValues[db2FieldIndexToSQLIndex[i] + j] = std::to_string(valueVector[0].v32);
+                } else {
+                    fieldValues[db2FieldIndexToSQLIndex[i] + j] = std::to_string(valueVector[0].v_f);
+                }
+            }
         }
     }
 
@@ -378,7 +402,7 @@ bool WDC3Importer::readWDC3Record(const int recordIndex,
                 fieldValues[dbdFieldIndexToSQLIndex[j]] = std::to_string(db2Base->getRelationRecord(recordIndex));
             }
         }
-    } else {
+    } else if (db2Base->hasRelationshipField()) {
         int j = fieldValues.size() - 1; //The relation field is the last field
         fieldValues[j] = std::to_string(db2Base->getRelationRecord(recordIndex));
     }

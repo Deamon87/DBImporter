@@ -4,12 +4,16 @@
 
 #include "CImporterClass.h"
 #include "../persistance/persistanceFile.h"
-
+#include "../fileReaders/WDC2/DB2Base.h"
+#include "../fileReaders/WDC3/DB2Base.h"
+#include "WDC3/WDC3Importer.h"
 
 #include <fstream>
+#include <iostream>
 
 void CImporterClass::addTable(std::string &tableName,
                               std::string db2File,
+                              IExporter * exporter,
                               std::shared_ptr<DBDFileStorage> fileDBDStorage) {
     //Read DB2 into memory
     std::ifstream cache_file(db2File, std::ios::in |std::ios::binary);
@@ -52,11 +56,14 @@ void CImporterClass::addTable(std::string &tableName,
 
             bool configFound = dbdFile->findBuildConfigByLayout(db2Base->getLayoutHash(), buildConfig);
             if (!configFound) {
-                std::cout << "Could not proper build find config for table " << tableName <<
-                          "for layout hash " << db2Base->getLayoutHash() << std::endl;
+                std::cout << "Could not find proper build config for table " << tableName <<
+                          " for layout hash " << db2Base->getLayoutHash() << std::endl;
 
                 buildConfig = nullptr;
             }
+        } else {
+            std::cout << "Could not find DBD file for table " << tableName << std::endl;
+
         }
 
 
@@ -69,11 +76,6 @@ void CImporterClass::addTable(std::string &tableName,
             }
         }
 
-        //TODO: HACK
-
-        //Debug info dump
-        //dumpDebugInfo(db2Base, buildConfig);
-
-        processWDC3(tableName, db2Base, dbdFile, buildConfig);
+        WDC3Importer::processWDC3(tableName, db2Base, dbdFile, exporter, buildConfig);
     }
 }

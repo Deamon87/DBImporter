@@ -72,8 +72,8 @@ std::string CSQLLiteExporter::generateCreateSQL(const std::string &tableName,
 
 void CSQLLiteExporter::addTableData( std::string tableName,
                                      std::vector<fieldInterchangeData> &fieldDefs,
-                                     std::function<bool(std::vector<std::string> &fieldValues)> fieldValueGenerator,
-                                     std::function<bool(int &fromId, int &toId)> copyGenerator) {
+                                     const std::function<void(const std::function <void(std::vector<std::string>&)>& )> &fieldValueIterator,
+                                     const std::function<void(const std::function <void(int, int)>& )> &copyIterator) {
     //Create table if not exists
     {
         std::string createTable = this->generateCreateSQL(tableName,fieldDefs);
@@ -86,14 +86,14 @@ void CSQLLiteExporter::addTableData( std::string tableName,
         transaction.commit();
     }
 
-    performInsert(tableName, fieldDefs, fieldValueGenerator);
-    performCopy(tableName, fieldDefs, copyGenerator);
+    performInsert(tableName, fieldDefs, fieldValueIterator);
+    performCopy(tableName, fieldDefs, copyIterator);
 
 }
 
 void CSQLLiteExporter::performCopy(const std::string &tableName,
                                    const std::vector<fieldInterchangeData> &fieldDefs,
-                                   const std::function<bool(int &, int &)> &copyGenerator) {
+                                   const std::function<void(const std::function <void(int, int)>& )> &copyIterator) {
     int sqlIdIndex = -1;
     for (int i = 0; i < fieldDefs.size(); i++) {
         if (fieldDefs[i].isId) {
@@ -127,15 +127,15 @@ void CSQLLiteExporter::performCopy(const std::string &tableName,
         {
             SQLite::Transaction transaction(m_sqliteDatabase);
 
-            int fromId = -1; int toId = -1;
-            while (copyGenerator(fromId, toId)) {
+            copyIterator([&copyQuery](int fromId, int toId) -> void {
                 copyQuery.reset();
 
                 copyQuery.bind(1, std::to_string(toId));
                 copyQuery.bind(2, std::to_string(fromId));
 
                 copyQuery.exec();
-            }
+            });
+
             transaction.commit();
         }
     }
@@ -143,7 +143,7 @@ void CSQLLiteExporter::performCopy(const std::string &tableName,
 
 void CSQLLiteExporter::performInsert(const std::string &tableName,
                                      const std::vector<fieldInterchangeData> &fieldDefs,
-                                     const std::function<bool(std::vector<std::string> &)> &fieldValueGenerator) {
+                                     const std::function<void(const std::function <void(std::vector<std::string>&)>& )> &fieldValueIterator) {
     //Perform insert
     {
         //Prepare statement for insert
@@ -158,29 +158,22 @@ void CSQLLiteExporter::performInsert(const std::string &tableName,
         statement += "? );";
         SQLite::Statement query(m_sqliteDatabase, statement);
 
-        std::vector<std::string> fieldDefaultValues = std::vector<std::string>(fieldDefs.size(), "");
-        for (int i = 0; i < fieldDefs.size(); i++) {
-            if (fieldDefs[i].fieldType != FieldType::STRING) {
-                fieldDefaultValues[i] = "0";
-            }
+
+{
+    SQLite::Transaction transaction(m_sqliteDatabase);
+
+    fieldValueIterator([&query](std::vector<std::string> fieldValues) -> void {
+        query.reset();
+
+        for (int sqlFieldInd = 0; sqlFieldInd < fieldValues.size(); sqlFieldInd++) {
+            query.bind(sqlFieldInd + 1, fieldValues[sqlFieldInd]);
         }
 
-        std::vector<std::string> fieldValues = {};
-        {
-            SQLite::Transaction transaction(m_sqliteDatabase);
+        query.exec();
+    });
 
-            fieldValues = fieldDefaultValues;
-            while (fieldValueGenerator(fieldValues)) {
-                query.reset();
-                for (int sqlFieldInd = 0; sqlFieldInd < fieldDefs.size(); sqlFieldInd++) {
-                    query.bind(sqlFieldInd + 1, fieldValues[sqlFieldInd]);
-                }
-
-                query.exec();
-            }
-
-            // Commit transaction
-            transaction.commit();
-        }
+    // Commit transaction
+    transaction.commit();
+}
     }
 }

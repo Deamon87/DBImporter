@@ -6,10 +6,13 @@
 #define DBIMPORTER_CIMPORTERCLASS_H
 
 #include "../fileReaders/DBD/DBDFileStorage.h"
+#include "../exporters/IExporter.h"
 
 class CImporterClass {
-    void addTable(std::string &tableName,
+public:
+    static void addTable(std::string &tableName,
                   std::string db2File,
+                  IExporter * exporter,
                   std::shared_ptr<DBDFileStorage> fileDBDStorage);
 };
 

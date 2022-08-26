@@ -9,24 +9,28 @@
 #include <vector>
 #include "../../fileReaders/DBD/DBDFile.h"
 #include "../../fileReaders/WDC3/DB2Base.h"
+#include "../../exporters/IExporter.h"
 
 class WDC3Importer {
-    void processWDC3(const std::string &tableName,
+public:
+    static void processWDC3(const std::string &tableName,
                      const std::shared_ptr<WDC3::DB2Base> &db2Base,
                      const std::shared_ptr<DBDFile> &dbdFile,
+                     IExporter * exporter,
                      const DBDFile::BuildConfig *buildConfig);
 
-    std::vector<fieldInterchangeData> generateFieldsFromDBDColumns(
+private:
+    static std::vector<fieldInterchangeData> generateFieldsFromDBDColumns(
                                         const std::shared_ptr<DBDFile> &dbdFile,
                                         const DBDFile::BuildConfig *buildConfig,
                                         std::vector<int> &db2FieldIndexToOutputFieldIndex,
                                         std::vector<int> &dbdFieldIndexToOutputFieldIndex);
 
-    std::vector<fieldInterchangeData> generateFieldsFromDB2Columns(
+    static std::vector<fieldInterchangeData> generateFieldsFromDB2Columns(
             std::shared_ptr<WDC3::DB2Base> db2Base,
             std::vector<int> &db2FieldIndexToOutputFieldIndex);
 
-    bool readWDC3Record(const int recordIndex,
+    static bool readWDC3Record(const int recordIndex,
                         const int recordIdSqlIndex,
                         std::vector<std::string> &fieldValues,
                         const std::shared_ptr<WDC3::DB2Base> db2Base,

@@ -9,6 +9,7 @@
 
 #include "exporters/sqlite/CSQLLiteExporter.h"
 #include "fileReaders/DBD/DBDFileStorage.h"
+#include "importers/CImporterClass.h"
 
 namespace fs = std::filesystem;
 
@@ -82,7 +83,7 @@ int main(int argc, char **argv) {
     std::string definitionsPath = std::string(argv[2]);
     std::string DB2Folder = std::string(argv[3]);
 
-    CSQLLiteExporter csqlLiteImporter = CSQLLiteExporter(std::string(argv[4]));
+    CSQLLiteExporter csqlLiteExporter = CSQLLiteExporter(std::string(argv[4]));
     std::shared_ptr<DBDFileStorage> fileDBDStorage = std::make_shared<DBDFileStorage>(definitionsPath);
 
     //Process DB2 files
@@ -101,12 +102,14 @@ int main(int argc, char **argv) {
                 continue;
             }
 
-//            db2FileName = "chrclasses";
+//            db2FileName = "manifestmp3";
 //            version = "8.0.1.26231";
 
             std::string tableName = db2FileName;
 
-            csqlLiteImporter.addTable(tableName, DB2Folder+db2FileName+".db2", fileDBDStorage);
+
+
+            CImporterClass::addTable(tableName, DB2Folder+db2FileName+".db2", &csqlLiteExporter, fileDBDStorage);
 //            break;
         }
     }

@@ -12,12 +12,13 @@
 
 #include "SQLiteCpp/Database.h"
 #include "../../importers/FieldInterchangeData.h"
+#include "../IExporter.h"
 
 
-class CSQLLiteExporter {
+class CSQLLiteExporter : public IExporter {
 public:
     CSQLLiteExporter(const std::string &databaseFile);
-    ~CSQLLiteExporter();
+    ~CSQLLiteExporter() override;
 
 private:
     SQLite::Database m_sqliteDatabase;
@@ -26,8 +27,8 @@ private:
     void addTableData(
         std::string tableName,
         std::vector<fieldInterchangeData> &fieldDefs,
-        std::function<bool(std::vector<std::string> &fieldValues)> fieldValueGenerator,
-        std::function<bool(int &fromId, int &toId)> copyGenerator
+        const std::function<void(const std::function <void(std::vector<std::string>&)>& )> &fieldValueIterator,
+        const std::function<void(const std::function <void(int, int)>& )> &copyIterator
     );
 
 private:
@@ -36,11 +37,11 @@ private:
 
     void performInsert(const std::string &tableName,
                        const std::vector<fieldInterchangeData> &fieldDefs,
-                       const std::function<bool(std::vector<std::string> &)> &fieldValueGenerator);
+                       const std::function<void(const std::function <void(std::vector<std::string>&)>& )> &fieldValueIterator);
 
     void performCopy(const std::string &tableName,
                      const std::vector<fieldInterchangeData> &fieldDefs,
-                     const std::function<bool(int &, int &)> &copyGenerator);
+                     const std::function<void(const std::function <void(int, int)>& )> &copyIterator);
 };
 
 

@@ -42,7 +42,7 @@ add_executable(DBImporter main.cpp
         importers/WDC3/WDC3Importer.h
         importers/FieldInterchangeData.h
         utils/string_utils.h
-        utils/string_utils.cpp importers/CImporterClass.cpp importers/CImporterClass.h persistance/persistanceFile.h)
+        utils/string_utils.cpp importers/CImporterClass.cpp importers/CImporterClass.h persistance/persistanceFile.h exporters/IExporter.h)
 
 if (NOT MSVC)
     find_library(DL_EXISTS dl)

@@ -342,7 +342,6 @@ void DB2Base::guessFieldSizeForCommon(int fieldSizeBits, int &elementSizeBytes, 
         arraySize = fieldTotalSizeInBytes;
         elementSizeBytes = 1;
     }
-
 }
 
 std::string DB2Base::getLayoutHash() {
@@ -564,16 +563,13 @@ DB2Base::WDC3RecordSparse::WDC3RecordSparse(const std::shared_ptr<const DB2Base>
                                             db2Class(db2Class), recordId(recordId), recordPointer(recordPointer) {
 
 }
-std::vector<WDC3::DB2Base::WDCFieldValue> DB2Base::WDC3RecordSparse::readNextField(int arrayElementSizeInBytes) {
+std::vector<WDC3::DB2Base::WDCFieldValue> DB2Base::WDC3RecordSparse::readNextField(int arrayElementSizeInBytes, int arraySize) {
     std::vector<WDC3::DB2Base::WDCFieldValue> result = {};
 
-    int arraySize = 1;
 
     if (arrayElementSizeInBytes <= 0) {
         guessFieldSizeForCommon(db2Class->getFieldInfo(currentFieldIndex)->field_size_bits,
                                 arrayElementSizeInBytes, arraySize);
-    } else {
-        arraySize = (db2Class->getFieldInfo(currentFieldIndex)->field_size_bits >> 8) / arrayElementSizeInBytes;
     }
 
     for (int i = 0; i < arraySize; i++) {
