@@ -7,6 +7,7 @@
 #include <iostream>
 #include <sstream>
 #include <assert.h>
+#include <cstring>
 #include <cmath>
 #include <iomanip>
 #include "DB2Base.h"
@@ -417,7 +418,7 @@ std::vector<WDC3::DB2Base::WDCFieldValue> DB2Base::WDC3Record::getField(int fiel
 
 
                 static_assert(sizeof(fieldValue) == 8);
-                memcpy(&fieldValue, &fieldDataPointer[fieldSize*j], fieldSize);
+                std::memcpy(&fieldValue, &fieldDataPointer[fieldSize*j], fieldSize);
             }
 
             break;
@@ -577,7 +578,7 @@ std::vector<WDC3::DB2Base::WDCFieldValue> DB2Base::WDC3RecordSparse::readNextFie
         static_assert(sizeof (fieldValue) == 8);
         fieldValue.v64 = 0;
 
-        memcpy(&fieldValue, &recordPointer[fieldOffset], arrayElementSizeInBytes);
+        std::memcpy(&fieldValue, &recordPointer[fieldOffset], arrayElementSizeInBytes);
         fieldOffset += arrayElementSizeInBytes;
     }
     currentFieldIndex++;
