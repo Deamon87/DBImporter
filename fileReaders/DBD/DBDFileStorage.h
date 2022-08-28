@@ -12,7 +12,7 @@
 
 class DBDFileStorage {
 public:
-    DBDFileStorage(std::string &directoryPath);
+    DBDFileStorage(const std::string &directoryPath);
 
     void addOrReplaceDBDFile(std::string tableName, std::string dbdFilePath);
 
@@ -21,7 +21,7 @@ public:
     std::string getTableName(std::string db2FileName);
     std::string getTableName(uint32_t tableHash);
 private:
-    std::string &m_directoryPath;
+    std::string m_directoryPath;
 
     //TableHash to DBDFile
     std::unordered_map<uint32_t, std::shared_ptr<DBDFile>> m_storage;

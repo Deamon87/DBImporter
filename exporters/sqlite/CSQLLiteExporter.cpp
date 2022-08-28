@@ -5,10 +5,10 @@
 //#include <sqlite3.h>
 #include <iostream>
 #include <fstream>
-#include "SQLiteCpp/Transaction.h"
+#include <SQLiteCpp/Transaction.h>
 
 #include "SQLiteCpp/Database.h"
-#include "../../3rdparty/SQLiteCpp/sqlite3/sqlite3.h"
+#include "SQLiteCpp/../../sqlite3/sqlite3.h"
 #include "CSQLLiteExporter.h"
 #include "../../utils/string_utils.h"
 

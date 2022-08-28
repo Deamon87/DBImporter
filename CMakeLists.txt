@@ -23,13 +23,15 @@ if (WIN32 AND NOT MSVC)
     add_compile_options(-fstack-protector)
 endif()
 
-add_subdirectory(${PROJECT_SOURCE_DIR}/3rdparty/SQLiteCpp EXCLUDE_FROM_ALL)
+option(DBIMPORTER_LINK_SQLITE "Complie and Link SQLITE" ON)
+option(DBIMPORTER_SQLITE_INCLUDE_DIR "SqliteCPP Include dir" "${PROJECT_SOURCE_DIR}/3rdparty/SQLiteCpp/include")
+if (DBIMPORTER_LINK_SQLITE)
+    add_subdirectory(${PROJECT_SOURCE_DIR}/3rdparty/SQLiteCpp EXCLUDE_FROM_ALL)
+endif()
 
-include_directories(
-        ${CMAKE_CURRENT_LIST_DIR}/3rdparty/SQLiteCpp/include
-) 
 
-add_executable(DBImporter main.cpp
+
+set(MAIN_SOURCES
         fileReaders/DBD/DBDFile.cpp
         fileReaders/DBD/DBDFile.h
         fileReaders/WDC2/DB2Base.cpp
@@ -42,7 +44,20 @@ add_executable(DBImporter main.cpp
         importers/WDC3/WDC3Importer.h
         importers/FieldInterchangeData.h
         utils/string_utils.h
-        utils/string_utils.cpp importers/CImporterClass.cpp importers/CImporterClass.h persistance/persistanceFile.h exporters/IExporter.h)
+        utils/string_utils.cpp )
+add_library(DBImporterLib ${MAIN_SOURCES})
+target_include_directories(
+        DBImporterLib
+        PRIVATE ${DBIMPORTER_SQLITE_INCLUDE_DIR}
+)
+
+add_executable(DBImporter main.cpp
+        importers/CImporterClass.cpp
+        importers/CImporterClass.h
+        persistance/persistanceFile.h
+        exporters/IExporter.h)
+
+target_link_libraries(DBImporter DBImporterLib)
 
 if (NOT MSVC)
     find_library(DL_EXISTS dl)

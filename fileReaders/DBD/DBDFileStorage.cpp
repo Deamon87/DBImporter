@@ -50,7 +50,7 @@ unsigned int hexToInt(const std::string &value) {
     return returnValue;
 }
 
-DBDFileStorage::DBDFileStorage(std::string &directoryPath) : m_directoryPath(directoryPath) {
+DBDFileStorage::DBDFileStorage(const std::string &directoryPath) : m_directoryPath(directoryPath) {
     loadDBDFiles();
 }
 
@@ -78,7 +78,7 @@ void DBDFileStorage::loadDBDFiles() {
             }
 
             std::string tableName = dbdFileName;
-            addOrReplaceDBDFile(tableName, m_directoryPath+dbdFileName+".dbd");
+            addOrReplaceDBDFile(tableName, entry.path().string());
         }
     }
 }
