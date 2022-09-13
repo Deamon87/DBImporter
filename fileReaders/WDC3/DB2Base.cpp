@@ -381,7 +381,7 @@ DB2Base::WDC3Record::WDC3Record(std::shared_ptr<DB2Base const> db2Class, int rec
 
 static inline void fixPaletteValue(WDC3::DB2Base::WDCFieldValue &value, int externalElemSizeBytes) {
     if (externalElemSizeBytes > 0 && externalElemSizeBytes < 4) {
-        uint32_t mask = (1 << externalElemSizeBytes) - 1;
+        uint32_t mask = (1 << (externalElemSizeBytes*8)) - 1;
         value.v32 = value.v32 & mask;
     }
 }

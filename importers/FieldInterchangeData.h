@@ -13,6 +13,7 @@ struct fieldInterchangeData {
     std::string fieldName;
     bool isId;
     FieldType fieldType;
+    bool isForeignKey;
 };
 
 #endif //DBIMPORTER_FIELDINTERCHANGEDATA_H

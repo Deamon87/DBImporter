@@ -214,6 +214,7 @@ WDC3Importer::generateFieldsFromDBDColumns(const std::shared_ptr<DBDFile> &m_dbd
                 colFieldName,
                 columnDef.isId,
                 FieldType::INT,
+                columnDef.isRelation
             });
 
             dbdFieldIndexToOutputFieldIndex[i] = exportFieldIndex++;
@@ -231,6 +232,7 @@ WDC3Importer::generateFieldsFromDBDColumns(const std::shared_ptr<DBDFile> &m_dbd
                   columnName,
                     false,
                     columnTypeDef->type,
+                    false,
                 });
 
                 dbdFieldIndexToOutputFieldIndex[i] = exportFieldIndex++;
@@ -242,6 +244,7 @@ WDC3Importer::generateFieldsFromDBDColumns(const std::shared_ptr<DBDFile> &m_dbd
                    colFieldName,
                      columnDef.isId,
                      columnTypeDef->type,
+                     columnDef.isRelation,
             });
             db2FieldIndexToOutputFieldIndex[db2FieldIndex++] = exportFieldIndex;
             dbdFieldIndexToOutputFieldIndex[i] = exportFieldIndex++;

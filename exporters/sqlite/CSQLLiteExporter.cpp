@@ -86,6 +86,20 @@ void CSQLLiteExporter::addTableData( std::string tableName,
         transaction.commit();
     }
 
+    //Add index over relation/foreign keys
+    {
+        SQLite::Transaction transaction(m_sqliteDatabase);
+
+        for (auto &fieldDef : fieldDefs) {
+            if (fieldDef.isForeignKey) {
+                m_sqliteDatabase.exec("CREATE INDEX IF NOT EXISTS "
+                                      +fieldDef.fieldName+"_idx ON " + tableName + "("+fieldDef.fieldName+");");
+            }
+        }
+
+        transaction.commit();
+    }
+
     performInsert(tableName, fieldDefs, fieldValueIterator);
     performCopy(tableName, fieldDefs, copyIterator);
 
