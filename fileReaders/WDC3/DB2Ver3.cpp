@@ -10,11 +10,11 @@
 #include <cstring>
 #include <cmath>
 #include <iomanip>
-#include "DB2Base.h"
+#include "DB2Ver3.h"
 
 using namespace WDC3;
 
-bool checkDataIfNonZero(unsigned char *ptr, int length) {
+static const inline bool checkDataIfNonZero(unsigned char *ptr, int length) {
     for (int i = 0; i < length; i++) {
         if (ptr[i] != 0)
             return false;
@@ -23,7 +23,7 @@ bool checkDataIfNonZero(unsigned char *ptr, int length) {
     return true;
 }
 
-void DB2Base::process(HFileContent db2File, const std::string &fileName) {
+void DB2Ver3::process(HFileContent db2File, const std::string &fileName) {
     this->db2File = db2File;
     this->db2FileName = fileName;
     fileData = &(*this->db2File.get())[0];
@@ -43,8 +43,8 @@ void DB2Base::process(HFileContent db2File, const std::string &fileName) {
     if (header->pallet_data_size > 0) {
         palleteDataArray.resize(header->field_count);
         for (int i = 0; i < header->field_count; i++) {
-            if ((field_info[i].storage_type == field_compression_bitpacked_indexed) ||
-                (field_info[i].storage_type == field_compression_bitpacked_indexed_array)) {
+            if ((field_info[i].storage_type == field_compression::field_compression_bitpacked_indexed) ||
+                (field_info[i].storage_type == field_compression::field_compression_bitpacked_indexed_array)) {
 
                 for (int j = 0; j < field_info[i].additional_data_size / 4; j++) {
                     uint32_t value;
@@ -231,7 +231,7 @@ void extractBits(unsigned char *inputBuffer, unsigned char *outputBuffer, int bi
     }
 }
 
-bool DB2Base::getSectionIndex(int recordIndex, int &sectionIndex, int &indexWithinSection) const {
+bool DB2Ver3::getSectionIndex(int recordIndex, int &sectionIndex, int &indexWithinSection) const {
     //Find Record by section
     sectionIndex = 0;
     indexWithinSection = recordIndex;
@@ -251,7 +251,7 @@ bool DB2Base::getSectionIndex(int recordIndex, int &sectionIndex, int &indexWith
     return true;
 }
 
-std::shared_ptr<DB2Base::WDC3Record> DB2Base::getRecord(const int recordIndex) {
+std::shared_ptr<DB2Ver3::WDC3Record> DB2Ver3::getRecord(const int recordIndex) {
     if (isSparse())
         return nullptr;
 
@@ -275,9 +275,9 @@ std::shared_ptr<DB2Base::WDC3Record> DB2Base::getRecord(const int recordIndex) {
 
     unsigned char *recordPointer = sectionContent.records[indexWithinSection].data;
 
-    return std::make_shared<DB2Base::WDC3Record>(shared_from_this(),recordId,recordIndex,recordPointer,sectionIndex);
+    return std::make_shared<DB2Ver3::WDC3Record>(shared_from_this(), recordId, recordIndex, recordPointer, sectionIndex);
 }
-std::shared_ptr<DB2Base::WDC3RecordSparse> DB2Base::getSparseRecord(int recordIndex) {
+std::shared_ptr<DB2Ver3::WDC3RecordSparse> DB2Ver3::getSparseRecord(int recordIndex) {
     if (!isSparse())
         return nullptr;
 
@@ -295,10 +295,10 @@ std::shared_ptr<DB2Base::WDC3RecordSparse> DB2Base::getSparseRecord(int recordIn
         + sectionContent.offset_map[indexWithinSection].offset
         - sectionHeader.file_offset;
 
-    return std::make_shared<DB2Base::WDC3RecordSparse>(shared_from_this(),recordId, recordPointer);
+    return std::make_shared<DB2Ver3::WDC3RecordSparse>(shared_from_this(), recordId, recordPointer);
 }
 
-int DB2Base::iterateOverCopyRecords(const std::function<void(int oldRecId, int newRecId)>& iterateFunction) {
+int DB2Ver3::iterateOverCopyRecords(const std::function<void(int oldRecId, int newRecId)>& iterateFunction) {
     for (int i = 0; i < sections.size(); i++) {
         if (sections[i].isEncoded) continue;
 //        if (section_headers[i].tact_key_hash != 0) continue;
@@ -314,7 +314,7 @@ int DB2Base::iterateOverCopyRecords(const std::function<void(int oldRecId, int n
     }
     return 0;
 }
-int DB2Base::getRelationRecord(int recordIndex) {
+int DB2Ver3::getRelationRecord(int recordIndex) {
     int sectionIndex = 0;
     while (recordIndex >= section_headers[sectionIndex].record_count) {
         recordIndex -= section_headers[sectionIndex].record_count;
@@ -323,12 +323,12 @@ int DB2Base::getRelationRecord(int recordIndex) {
 
     return getRelationRecord(recordIndex, sectionIndex);
 }
-int DB2Base::getRelationRecord(int recordIndexInSection, int sectionIndex) {
+int DB2Ver3::getRelationRecord(int recordIndexInSection, int sectionIndex) {
     int result = sections[sectionIndex].perRecordIndexRelation[recordIndexInSection];
     return result;
 }
 
-void DB2Base::guessFieldSizeForCommon(int fieldSizeBits, int &elementSizeBytes, int &arraySize) {
+void DB2Ver3::guessFieldSizeForCommon(int fieldSizeBits, int &elementSizeBytes, int &arraySize) {
     if (fieldSizeBits == 64 || fieldSizeBits == 32 ||  fieldSizeBits == 16 || fieldSizeBits == 8) {
         arraySize = 1;
         elementSizeBytes = fieldSizeBits >> 3;
@@ -345,7 +345,7 @@ void DB2Base::guessFieldSizeForCommon(int fieldSizeBits, int &elementSizeBytes, 
     }
 }
 
-std::string DB2Base::getLayoutHash() {
+std::string DB2Ver3::getLayoutHash() {
     std::stringstream res;
     res << std::setfill('0') << std::setw(8) << std::hex << header->layout_hash ;
     std::string resStr = res.str();
@@ -357,9 +357,9 @@ std::string DB2Base::getLayoutHash() {
     return resStr;
 }
 
-int DB2Base::isSparse() { return header->flags.isSparse; }
+int DB2Ver3::isSparse() { return header->flags.isSparse; }
 
-const field_storage_info * const DB2Base::getFieldInfo(uint32_t fieldIndex) const {
+const field_storage_info * const DB2Ver3::getFieldInfo(uint32_t fieldIndex) const {
     if (fieldIndex >= header->field_count) {
         std::cout << "fieldIndex = " << fieldIndex << " is bigger than field count = " << header->field_count << std::endl;
         return nullptr;
@@ -371,7 +371,7 @@ const field_storage_info * const DB2Base::getFieldInfo(uint32_t fieldIndex) cons
 //- DB Record classes
 //---------------------------
 
-DB2Base::WDC3Record::WDC3Record(std::shared_ptr<DB2Base const> db2Class, int recordId, uint32_t recordIndex,
+DB2Ver3::WDC3Record::WDC3Record(std::shared_ptr<DB2Ver3 const> db2Class, int recordId, uint32_t recordIndex,
                                 unsigned char *recordPointer, uint32_t sectionIndex) :
                                 db2Class(db2Class), recordId(recordId), recordIndex(recordIndex),
                                 recordPointer(recordPointer), sectionIndex(sectionIndex)
@@ -379,17 +379,17 @@ DB2Base::WDC3Record::WDC3Record(std::shared_ptr<DB2Base const> db2Class, int rec
 
 }
 
-static inline void fixPaletteValue(WDC3::DB2Base::WDCFieldValue &value, int externalElemSizeBytes) {
+static inline void fixPaletteValue(WDC3::DB2Ver3::WDCFieldValue &value, int externalElemSizeBytes) {
     if (externalElemSizeBytes > 0 && externalElemSizeBytes < 4) {
         uint32_t mask = (1 << (externalElemSizeBytes*8)) - 1;
         value.v32 = value.v32 & mask;
     }
 }
 
-std::vector<WDC3::DB2Base::WDCFieldValue> DB2Base::WDC3Record::getField(int fieldIndex, int externalArraySize, int externalElemSizeBytes) const {
+std::vector<WDC3::DB2Ver3::WDCFieldValue> DB2Ver3::WDC3Record::getField(int fieldIndex, int externalArraySize, int externalElemSizeBytes) const {
     auto const db2Header = db2Class->header;
 
-    std::vector<WDC3::DB2Base::WDCFieldValue> result = {};
+    std::vector<WDC3::DB2Ver3::WDCFieldValue> result = {};
 
     auto const fieldInfo = db2Class->getFieldInfo(fieldIndex);
     if (fieldInfo == nullptr) {
@@ -397,7 +397,7 @@ std::vector<WDC3::DB2Base::WDCFieldValue> DB2Base::WDC3Record::getField(int fiel
     }
 
     switch (fieldInfo->storage_type) {
-        case field_compression_none: {
+        case field_compression::field_compression_none: {
             int byteOffset = fieldInfo->field_offset_bits >> 3;
             int bytesToRead = fieldInfo->field_size_bits >> 3;
 
@@ -425,8 +425,8 @@ std::vector<WDC3::DB2Base::WDCFieldValue> DB2Base::WDC3Record::getField(int fiel
         }
 
 
-        case field_compression_bitpacked:
-        case field_compression_bitpacked_signed: {
+        case field_compression::field_compression_bitpacked:
+        case field_compression::field_compression_bitpacked_signed: {
             uint32_t unpackedValue = 0;
 
             unsigned int bitOffset = fieldInfo->field_offset_bits;
@@ -436,7 +436,7 @@ std::vector<WDC3::DB2Base::WDCFieldValue> DB2Base::WDC3Record::getField(int fiel
 
             auto &fieldValue = result.emplace_back();
 
-            if (fieldInfo->storage_type == field_compression_bitpacked_signed) {
+            if (fieldInfo->storage_type == field_compression::field_compression_bitpacked_signed) {
                 uint32_t value = unpackedValue;
                 value = value << (32-bitesToRead);
                 int32_t value_s = *(int32_t *) &value;
@@ -450,7 +450,7 @@ std::vector<WDC3::DB2Base::WDCFieldValue> DB2Base::WDC3Record::getField(int fiel
             break;
         }
 
-        case field_compression_common_data: {
+        case field_compression::field_compression_common_data: {
             auto &fieldValue = result.emplace_back();
 
             fieldValue.v32 = fieldInfo->field_compression_common_data.default_value;
@@ -464,8 +464,8 @@ std::vector<WDC3::DB2Base::WDCFieldValue> DB2Base::WDC3Record::getField(int fiel
             break;
         }
 
-        case field_compression_bitpacked_indexed:
-        case field_compression_bitpacked_indexed_array: {
+        case field_compression::field_compression_bitpacked_indexed:
+        case field_compression::field_compression_bitpacked_indexed_array: {
 
             unsigned int bitOffset = fieldInfo->field_compression_bitpacked_indexed.bitpacking_offset_bits;
             unsigned int bitesToRead = fieldInfo->field_compression_bitpacked_indexed.bitpacking_size_bits;
@@ -474,7 +474,7 @@ std::vector<WDC3::DB2Base::WDCFieldValue> DB2Base::WDC3Record::getField(int fiel
 
             int palleteIndex = get_bits(recordPointer, bitOffset, bitesToRead);
 
-            if (fieldInfo->storage_type == field_compression_bitpacked_indexed_array) {
+            if (fieldInfo->storage_type == field_compression::field_compression_bitpacked_indexed_array) {
                 int array_count = fieldInfo->field_compression_bitpacked_indexed_array.array_count;
                 for (int j = 0; j < array_count; j++) {
                     int properPalleteIndex = (palleteIndex * array_count) + j;
@@ -504,7 +504,7 @@ std::vector<WDC3::DB2Base::WDCFieldValue> DB2Base::WDC3Record::getField(int fiel
     return result;
 }
 
-std::string DB2Base::WDC3Record::readString(int fieldIndex) const {
+std::string DB2Ver3::WDC3Record::readString(int fieldIndex) const {
     const wdc3_db2_header * const db2Header = db2Class->header;
 
     if (fieldIndex >= db2Header->field_count) {
@@ -515,7 +515,7 @@ std::string DB2Base::WDC3Record::readString(int fieldIndex) const {
             (recordIndex * db2Header->record_size) +
             (db2Class->field_info[fieldIndex].field_offset_bits >> 3);
 
-    std::vector<WDC3::DB2Base::WDCFieldValue> value = this->getField(fieldIndex, -1, 4);
+    std::vector<WDC3::DB2Ver3::WDCFieldValue> value = this->getField(fieldIndex, -1, 4);
     if (value.empty()) {
         return "!#ERROR while getting field value";
     }
@@ -559,13 +559,13 @@ std::string DB2Base::WDC3Record::readString(int fieldIndex) const {
  * -------------------------
  */
 
-DB2Base::WDC3RecordSparse::WDC3RecordSparse(const std::shared_ptr<const DB2Base> &db2Class, int recordId,
+DB2Ver3::WDC3RecordSparse::WDC3RecordSparse(const std::shared_ptr<const DB2Ver3> &db2Class, int recordId,
                                             unsigned char *recordPointer) :
                                             db2Class(db2Class), recordId(recordId), recordPointer(recordPointer) {
 
 }
-std::vector<WDC3::DB2Base::WDCFieldValue> DB2Base::WDC3RecordSparse::readNextField(int arrayElementSizeInBytes, int arraySize) {
-    std::vector<WDC3::DB2Base::WDCFieldValue> result = {};
+std::vector<WDC3::DB2Ver3::WDCFieldValue> DB2Ver3::WDC3RecordSparse::readNextField(int arrayElementSizeInBytes, int arraySize) {
+    std::vector<WDC3::DB2Ver3::WDCFieldValue> result = {};
 
 
     if (arrayElementSizeInBytes <= 0) {
@@ -586,7 +586,7 @@ std::vector<WDC3::DB2Base::WDCFieldValue> DB2Base::WDC3RecordSparse::readNextFie
     return result;
 }
 
-std::string DB2Base::WDC3RecordSparse::readNextAsString() {
+std::string DB2Ver3::WDC3RecordSparse::readNextAsString() {
     std::string result = std::string((char *)&recordPointer[fieldOffset]);
     fieldOffset+=result.length()+1;
 

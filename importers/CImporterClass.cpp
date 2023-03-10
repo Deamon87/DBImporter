@@ -5,8 +5,9 @@
 #include "CImporterClass.h"
 #include "../persistance/persistanceFile.h"
 #include "../fileReaders/WDC2/DB2Base.h"
-#include "../fileReaders/WDC3/DB2Base.h"
+#include "../fileReaders/WDC3/DB2Ver3.h"
 #include "WDC3/WDC3Importer.h"
+#include "../fileReaders/WDC4/DB2Ver4.h"
 
 #include <fstream>
 #include <iostream>
@@ -42,8 +43,14 @@ void CImporterClass::addTable(std::string &tableName,
         db2Base.process(vec, db2File);
 
 
-    } else if (*(uint32_t *)vec->data() == '3CDW') {
-        std::shared_ptr<WDC3::DB2Base> db2Base = std::make_shared<WDC3::DB2Base>();
+    } else if (*(uint32_t *)vec->data() == '3CDW' || *(uint32_t *)vec->data() == '4CDW') {
+        std::shared_ptr<WDC3::DB2Ver3> db2Base = nullptr;
+
+        if (*(uint32_t *)vec->data() == '4CDW') {
+            db2Base = std::make_shared<WDC3::DB2Ver3>();
+        } else {
+            db2Base = std::make_shared<WDC4::DB2Ver4>();
+        }
         db2Base->process(vec, "");
         DBDFile::BuildConfig *buildConfig = nullptr;
 
@@ -65,7 +72,6 @@ void CImporterClass::addTable(std::string &tableName,
             std::cout << "Could not find DBD file for table " << tableName << std::endl;
 
         }
-
 
         if (db2Base->getWDCHeader()->field_storage_info_size == 0) {
             if (buildConfig == nullptr) {

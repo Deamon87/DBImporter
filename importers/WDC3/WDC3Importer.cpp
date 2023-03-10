@@ -6,7 +6,7 @@
 #include "../../utils/string_utils.h"
 
 /*
-void dumpDebugInfo(std::shared_ptr<WDC3::DB2Base> &db2Base, DBDFile::BuildConfig *buildConfig) const {
+void dumpDebugInfo(std::shared_ptr<WDC3::DB2Ver3> &db2Base, DBDFile::BuildConfig *buildConfig) const {
     if (db2Base->getWDCHeader()->field_storage_info_size != 0) {
         for (int i = 0; i < db2Base->getWDCHeader()->field_count; i++) {
             decltype(buildConfig->columns)::value_type *dbdBuildColumnDef = nullptr;
@@ -47,7 +47,7 @@ void dumpDebugInfo(std::shared_ptr<WDC3::DB2Base> &db2Base, DBDFile::BuildConfig
  */
 
 void WDC3Importer::processWDC3(const std::string &tableName,
-                               const std::shared_ptr<WDC3::DB2Base> &db2Base,
+                               const std::shared_ptr<WDC3::DB2Ver3> &db2Base,
                                const std::shared_ptr<DBDFile> &dbdFile,
                                IExporter * exporter,
                                const DBDFile::BuildConfig *buildConfig) {
@@ -116,7 +116,7 @@ void WDC3Importer::processWDC3(const std::string &tableName,
 }
 
 std::vector<fieldInterchangeData>
-WDC3Importer::generateFieldsFromDB2Columns(std::shared_ptr<WDC3::DB2Base> db2Base,
+WDC3Importer::generateFieldsFromDB2Columns(std::shared_ptr<WDC3::DB2Ver3> db2Base,
                                            std::vector<int> &db2FieldIndexToOutputFieldIndex) {
     std::vector<fieldInterchangeData> result;
 
@@ -136,13 +136,13 @@ WDC3Importer::generateFieldsFromDB2Columns(std::shared_ptr<WDC3::DB2Base> db2Bas
         db2FieldIndexToOutputFieldIndex[i] = exportFieldIndex;
 
         int arrayCount = 1;
-        if (db2Field->storage_type == WDC3::field_compression_bitpacked_indexed_array) {
+        if (db2Field->storage_type == WDC3::field_compression::field_compression_bitpacked_indexed_array) {
             arrayCount = db2Field->field_compression_bitpacked_indexed_array.array_count;
         }
 
-        if (db2Field->storage_type == WDC3::field_compression_none) {
+        if (db2Field->storage_type == WDC3::field_compression::field_compression_none) {
             int fieldSizeInByte = 0;
-            WDC3::DB2Base::guessFieldSizeForCommon(db2Field->field_size_bits, fieldSizeInByte, arrayCount);
+            WDC3::DB2Ver3::guessFieldSizeForCommon(db2Field->field_size_bits, fieldSizeInByte, arrayCount);
         }
 
         if (arrayCount > 1) {
@@ -257,7 +257,7 @@ WDC3Importer::generateFieldsFromDBDColumns(const std::shared_ptr<DBDFile> &m_dbd
 bool WDC3Importer::readWDC3Record(const int recordIndex,
                                   const int recordIdExportIndex,
                                   std::vector<std::string> &fieldValues,
-                                  const std::shared_ptr<WDC3::DB2Base> db2Base,
+                                  const std::shared_ptr<WDC3::DB2Ver3> db2Base,
                                   const std::shared_ptr<DBDFile> &m_dbdFile,
                                   const DBDFile::BuildConfig *buildConfig,
                                   const std::vector<int> &db2FieldIndexToSQLIndex,
@@ -311,7 +311,7 @@ bool WDC3Importer::readWDC3Record(const int recordIndex,
                     if (fieldStruct->field_size_bits == 64) {
                         fieldValues[db2FieldIndexToSQLIndex[i] + j] = std::to_string(valueVector[j].v64);
                     } else {
-                        if (fieldStruct->storage_type== WDC3::field_compression_bitpacked_signed) {
+                        if (fieldStruct->storage_type== WDC3::field_compression::field_compression_bitpacked_signed) {
                             fieldValues[db2FieldIndexToSQLIndex[i] + j] = std::to_string(valueVector[j].v32s);
                         } else {
                             fieldValues[db2FieldIndexToSQLIndex[i] + j] = std::to_string(valueVector[j].v32);

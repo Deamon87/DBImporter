@@ -66,7 +66,7 @@ namespace WDC3 {
         uint16_t offset;
     });
 
-    enum field_compression {
+    enum class field_compression {
         // None -- the field is a 8-, 16-, 32-, or 64-bit integer in the record data
             field_compression_none,
         // Bitpacked -- the field is a bitpacked integer in the record data.  It
@@ -186,13 +186,14 @@ namespace WDC3 {
         std::unordered_map<int, int> perRecordIndexRelation = {};
     };
 
-    class DB2Base : public std::enable_shared_from_this<WDC3::DB2Base> {
+    class DB2Ver3 : public std::enable_shared_from_this<WDC3::DB2Ver3> {
+    protected:
         class WDC3Record;
         class WDC3RecordSparse;
     public:
-        DB2Base() = default;
+        DB2Ver3() = default;
 
-        void process(HFileContent db2File, const std::string &fileName);
+        virtual void process(HFileContent db2File, const std::string &fileName);
 
         bool getIsLoaded() { return m_loaded; };
         std::string getLayoutHash();
@@ -225,14 +226,14 @@ namespace WDC3 {
             int32_t v32s;
             float v_f;
         };
-    private:
+    protected:
         class WDC3Record {
         private:
             WDC3Record(const WDC3Record&) = delete;
             WDC3Record(const WDC3Record&&) = delete;
             WDC3Record() = delete;
 
-            std::shared_ptr<DB2Base const> db2Class;
+            std::shared_ptr<DB2Ver3 const> db2Class;
             int recordId;
             unsigned char *recordPointer;
 
@@ -240,30 +241,30 @@ namespace WDC3 {
             uint32_t sectionIndex;
 
         public:
-            WDC3Record(std::shared_ptr<DB2Base const> db2Class,
+            WDC3Record(std::shared_ptr<DB2Ver3 const> db2Class,
                        int recordId,
                        uint32_t recordIndex,
                        unsigned char *recordPointer,
                        uint32_t sectionIndex);
 
             int getRecordId() { return recordId; }
-            [[nodiscard]] std::vector<WDC3::DB2Base::WDCFieldValue> getField(int fieldIndex, int externalArraySize, int externalElemSizeBytes) const;
+            [[nodiscard]] std::vector<WDC3::DB2Ver3::WDCFieldValue> getField(int fieldIndex, int externalArraySize, int externalElemSizeBytes) const;
             [[nodiscard]] std::string readString(int fieldIndex) const;
         };
         class WDC3RecordSparse {
         private:
-            const std::shared_ptr<DB2Base const> db2Class;
+            const std::shared_ptr<DB2Ver3 const> db2Class;
             int recordId;
             uint32_t fieldOffset = 0;
             uint32_t currentFieldIndex = 0;
             unsigned char *recordPointer;
         public:
-            WDC3RecordSparse(const std::shared_ptr<DB2Base const> &db2Class,
+            WDC3RecordSparse(const std::shared_ptr<DB2Ver3 const> &db2Class,
                              int recordId,
                              unsigned char *recordPointer);
 
             int getRecordId() { return recordId; }
-            [[nodiscard]] std::vector<WDC3::DB2Base::WDCFieldValue> readNextField(int arrayElementSizeInBytes, int arraySize);
+            [[nodiscard]] std::vector<WDC3::DB2Ver3::WDCFieldValue> readNextField(int arrayElementSizeInBytes, int arraySize);
             [[nodiscard]] std::string readNextAsString() ;
         };
 
