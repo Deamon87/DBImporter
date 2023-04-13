@@ -47,11 +47,11 @@ void CImporterClass::addTable(std::string &tableName,
         std::shared_ptr<WDC3::DB2Ver3> db2Base = nullptr;
 
         if (*(uint32_t *)vec->data() == '4CDW') {
-            db2Base = std::make_shared<WDC3::DB2Ver3>();
-        } else {
             db2Base = std::make_shared<WDC4::DB2Ver4>();
+        } else {
+            db2Base = std::make_shared<WDC3::DB2Ver3>();
         }
-        db2Base->process(vec, "");
+        db2Base->process( vec, "");
         DBDFile::BuildConfig *buildConfig = nullptr;
 
         auto dbdFile = fileDBDStorage->getDBDFile(tableName);
@@ -74,6 +74,12 @@ void CImporterClass::addTable(std::string &tableName,
         }
 
         if (db2Base->getWDCHeader()->field_storage_info_size == 0) {
+            if (db2Base->getWDCHeader()->record_count > 0) {
+                std::cout << "DB2 " << tableName
+                          << " do not have field info and have records. Unable to parse without build config in DBD file"
+                          << std::endl;
+            }
+
             if (buildConfig == nullptr) {
                 std::cout << "DB2 " << tableName
                           << " do not have field info. Unable to parse without build config in DBD file"

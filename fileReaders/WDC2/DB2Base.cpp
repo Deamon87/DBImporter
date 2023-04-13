@@ -2,7 +2,7 @@
 // Created by deamon on 02.04.18.
 //
 
-#include <cstdint>
+#include <stdint.h>
 #include <algorithm>
 #include <iostream>
 #include "DB2Base.h"

@@ -389,7 +389,7 @@ bool WDC3Importer::readWDC3Record(const int recordIndex,
 
             auto valueVector = sparseRecord->readNextField(fieldSizeInBytes, arraySize);
             for (int j = 0; j < valueVector.size(); j++) {
-                if (dbdGlobalColumnDef->type != FieldType::FLOAT) {
+                if (dbdGlobalColumnDef == nullptr || dbdGlobalColumnDef->type != FieldType::FLOAT) {
                     fieldValues[db2FieldIndexToSQLIndex[i] + j] = std::to_string(valueVector[0].v32);
                 } else {
                     fieldValues[db2FieldIndexToSQLIndex[i] + j] = std::to_string(valueVector[0].v_f);

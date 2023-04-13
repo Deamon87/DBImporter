@@ -69,7 +69,7 @@ int main(int argc, char **argv) {
     SetUnhandledExceptionFilter(windows_exception_handler);
     const bool SET_TERMINATE = std::set_terminate(beforeCrash);
 #ifndef _MSC_VER
-    const bool SET_TERMINATE_UNEXP = std::set_unexpected(beforeCrash);
+//    const bool SET_TERMINATE_UNEXP = std::set_unexpected(beforeCrash);
 #endif
 #endif
     signal(SIGABRT, &my_function_to_handle_aborts);
