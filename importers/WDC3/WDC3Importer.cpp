@@ -291,16 +291,13 @@ bool WDC3Importer::readWDC3Record(const int recordIndex,
             int arraySize = -1;
             int elementSize = -1;
             if (dbdBuildColumnDef != nullptr && dbdGlobalColumnDef != nullptr) {
-                if (dbdGlobalColumnDef->type == FieldType::STRING) {
-                    arraySize = 1;
-                    elementSize = 1;
+                arraySize = dbdBuildColumnDef->arraySize > 0 ? dbdBuildColumnDef->arraySize : 1;
+
+                if (dbdGlobalColumnDef->type == FieldType::STRING || dbdGlobalColumnDef->type == FieldType::FLOAT) {
+                    elementSize = 4;
                 } else {
-                    arraySize = dbdBuildColumnDef->arraySize > 0 ? dbdBuildColumnDef->arraySize : 1;
                     elementSize = dbdBuildColumnDef->bitSize >> 3;
                 }
-
-                if (dbdGlobalColumnDef->type == FieldType::FLOAT)
-                    elementSize = 4;
             }
 
             auto fieldStruct = db2Base->getFieldInfo(i);
@@ -319,13 +316,16 @@ bool WDC3Importer::readWDC3Record(const int recordIndex,
                     }
                 } else {
                     switch (dbdGlobalColumnDef->type) {
-                        case FieldType::FLOAT:
+                        case FieldType::FLOAT: {
                             fieldValues[db2FieldIndexToSQLIndex[i] + j] = std::to_string(valueVector[j].v_f);
                             break;
-                        case FieldType::STRING:
-                            fieldValues[db2FieldIndexToSQLIndex[i] + j] = normalRecord->readString(i);
+                        };
+                        case FieldType::STRING: {
+                            fieldValues[db2FieldIndexToSQLIndex[i] + j] = normalRecord->readString(i, j * 4,
+                                                                                                   valueVector[j].v32);
                             break;
-                        case FieldType::INT:
+                        }
+                        case FieldType::INT: {
                             if (dbdBuildColumnDef->bitSize == 64) {
                                 if (dbdBuildColumnDef->isSigned) {
                                     fieldValues[db2FieldIndexToSQLIndex[i] + j] = std::to_string(valueVector[j].v64);
@@ -340,6 +340,7 @@ bool WDC3Importer::readWDC3Record(const int recordIndex,
                                 }
                             }
                             break;
+                        }
                     }
                 }
             }

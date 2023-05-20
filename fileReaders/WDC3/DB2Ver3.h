@@ -249,7 +249,7 @@ namespace WDC3 {
 
             int getRecordId() { return recordId; }
             [[nodiscard]] std::vector<WDC3::DB2Ver3::WDCFieldValue> getField(int fieldIndex, int externalArraySize, int externalElemSizeBytes) const;
-            [[nodiscard]] std::string readString(int fieldIndex) const;
+            [[nodiscard]] std::string readString(int fieldIndex, int fieldElementOffset, int stringOffset) const;
         };
         class WDC3RecordSparse {
         private:

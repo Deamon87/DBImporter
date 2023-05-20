@@ -504,37 +504,39 @@ std::vector<WDC3::DB2Ver3::WDCFieldValue> DB2Ver3::WDC3Record::getField(int fiel
     return result;
 }
 
-std::string DB2Ver3::WDC3Record::readString(int fieldIndex) const {
+std::string DB2Ver3::WDC3Record::readString(int fieldIndex, int fieldElementOffset, int stringOffset) const {
     const wdc3_db2_header * const db2Header = db2Class->header;
 
     if (fieldIndex >= db2Header->field_count) {
         return "!#Invalid field number";
     }
 
+    if (stringOffset == 0)
+        return ""; //How else would you mark empty string? Only through null offset
+
     uint32_t fieldOffsetIntoGlobalArray =
             (recordIndex * db2Header->record_size) +
-            (db2Class->field_info[fieldIndex].field_offset_bits >> 3);
-
-    std::vector<WDC3::DB2Ver3::WDCFieldValue> value = this->getField(fieldIndex, -1, 4);
-    if (value.empty()) {
-        return "!#ERROR while getting field value";
-    }
+            (db2Class->field_info[fieldIndex].field_offset_bits >> 3) + fieldElementOffset;
 
     uint32_t stringOffsetIntoGlobalStringSection =
-            (fieldOffsetIntoGlobalArray + value[0].v32) - (db2Header->record_count*db2Header->record_size);
+            (fieldOffsetIntoGlobalArray + stringOffset) - (db2Header->record_count*db2Header->record_size);
 
     int offset = stringOffsetIntoGlobalStringSection; // NOLINT(cppcoreguidelines-narrowing-conversions)
+
+    assert(offset > 0);
 
     //Find section that is referenced by this offset
     const auto sectionHeaders = db2Class->section_headers;
     int sectionIndexforStr = 0;
-    while (sectionIndexforStr < sectionIndex && offset >= sectionHeaders[sectionIndexforStr].string_table_size) {
+    while (sectionIndexforStr < db2Class->sections.size() && offset >= sectionHeaders[sectionIndexforStr].string_table_size) {
+        assert(offset > sectionHeaders[sectionIndexforStr].string_table_size && offset > 0);
         offset -= sectionHeaders[sectionIndexforStr].string_table_size;
+
         sectionIndexforStr++;
     }
 
     if (sectionIndexforStr >= db2Header->section_count) {
-        return "!#Found invalid section for String";
+        return "!#Found invalid section for String, offset = " + std::to_string(offset);
     }
 
     if (offset < 0 || offset >= sectionHeaders[sectionIndexforStr].string_table_size) {
