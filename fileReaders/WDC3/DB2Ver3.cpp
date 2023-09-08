@@ -529,7 +529,7 @@ std::string DB2Ver3::WDC3Record::readString(int fieldIndex, int fieldElementOffs
     const auto sectionHeaders = db2Class->section_headers;
     int sectionIndexforStr = 0;
     while (sectionIndexforStr < db2Class->sections.size() && offset >= sectionHeaders[sectionIndexforStr].string_table_size) {
-        assert(offset > sectionHeaders[sectionIndexforStr].string_table_size && offset > 0);
+        assert(offset >= sectionHeaders[sectionIndexforStr].string_table_size && offset >= 0);
         offset -= sectionHeaders[sectionIndexforStr].string_table_size;
 
         sectionIndexforStr++;
