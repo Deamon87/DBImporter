@@ -38,12 +38,11 @@ void CImporterClass::addTable(std::string &tableName,
         return;
     }
 
-    if (*(uint32_t *)vec->data() == 'WDC2') {
+    const uint32_t fileIdent = *(uint32_t *)vec->data();
+    if (fileIdent == 'WDC2') {
         WDC2::DB2Base db2Base;
         db2Base.process(vec, db2File);
-
-
-    } else if (*(uint32_t *)vec->data() == '3CDW' || *(uint32_t *)vec->data() == '4CDW') {
+    } else if (fileIdent == '3CDW' || fileIdent == '4CDW' || fileIdent == '5CDW') {
         std::shared_ptr<WDC3::DB2Ver3> db2Base = nullptr;
 
         if (*(uint32_t *)vec->data() == '4CDW') {

@@ -62,6 +62,7 @@ set(MAIN_SOURCES
         fileReaders/WDC2/DB2Base.cpp
         fileReaders/WDC3/DB2Ver3.cpp
         fileReaders/WDC4/DB2Ver4.cpp
+        fileReaders/WDC5/DB2Ver5.cpp
         exporters/sqlite/CSQLLiteExporter.cpp
         exporters/sqlite/CSQLLiteExporter.h
         fileReaders/DBD/DBDFileStorage.cpp

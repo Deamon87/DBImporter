@@ -137,7 +137,7 @@ void DBDFile::parseColumnDefLine(std::string &line) {
 //    columnDefs.insert(, newDef);
 }
 
-void DBDFile::parseColumnBuildDefLine(std::string &line, BuildConfig &buildConfig) {
+void DBDFile::parseColumnBuildDefLine(const std::string &line, BuildConfig &buildConfig) {
     ColumnBuildDef buildDef;
 
     int prefixStart = line.find('$', 0);
@@ -201,7 +201,7 @@ void DBDFile::parseColumnBuildDefLine(std::string &line, BuildConfig &buildConfi
     buildConfig.columns.push_back(buildDef);
 }
 
-bool DBDFile::findBuildConfig(std::string buildVersionString, std::string layout, DBDFile::BuildConfig *&buildConfig_) {
+bool DBDFile::findBuildConfig(const std::string &buildVersionString, const std::string &layout, DBDFile::BuildConfig *&buildConfig_) {
     for (auto &buildConfig :buildConfigs) {
         if (std::find(buildConfig.builds.begin(), buildConfig.builds.end(), buildVersionString) != buildConfig.builds.end()) {
             buildConfig_ = &buildConfig;
@@ -210,7 +210,7 @@ bool DBDFile::findBuildConfig(std::string buildVersionString, std::string layout
     }
     return false;
 }
-bool DBDFile::findBuildConfigByLayout(std::string layout, DBDFile::BuildConfig *&buildConfig_) {
+bool DBDFile::findBuildConfigByLayout(const std::string &layout, DBDFile::BuildConfig *&buildConfig_) {
     for (auto &buildConfig :buildConfigs) {
         if (std::find(buildConfig.layoutHashes.begin(), buildConfig.layoutHashes.end(), layout) != buildConfig.layoutHashes.end()) {
             buildConfig_ = &buildConfig;

@@ -51,8 +51,8 @@ private:
     std::unordered_map<std::string, ColumnDef> columnDefs;
     std::vector<BuildConfig> buildConfigs;
 public:
-    bool findBuildConfig(std::string buildVersionString, std::string layout, DBDFile::BuildConfig *&buildConfig);
-    bool findBuildConfigByLayout(std::string layout, DBDFile::BuildConfig *&buildConfig_);
+    bool findBuildConfig(const std::string &buildVersionString, const std::string &layout, DBDFile::BuildConfig *&buildConfig);
+    bool findBuildConfigByLayout(const std::string &layout, DBDFile::BuildConfig *&buildConfig_);
     const ColumnDef *getColumnDef(const std::string &columnName) const {
         return &columnDefs.at(columnName);
     }
@@ -60,7 +60,7 @@ private:
     enum class SectionMode { NONE, COLUMNS, BUILD};
 
     void parseColumnDefLine(std::string &line);
-    void parseColumnBuildDefLine(std::string &line, BuildConfig &buildConfig);
+    void parseColumnBuildDefLine(const std::string &line, BuildConfig &buildConfig);
     void commitBuildConfig(SectionMode currentMode, BuildConfig &buildConfig);
 };
 

@@ -31,18 +31,21 @@ void DB2Ver3::process(HFileContent db2File, const std::string &fileName) {
     currentOffset = 0;
     bytesRead = 0;
 
+    WDC3::db2_header header;
     readValue(header);
+    readValue(headerContent);
 
-    readValues(section_headers, header->section_count);
-    readValues(fields, header->total_field_count);
-    fieldInfoLength = header->field_storage_info_size / sizeof(field_storage_info);
+
+    readValues(section_headers, headerContent->section_count);
+    readValues(fields, headerContent->total_field_count);
+    fieldInfoLength = headerContent->field_storage_info_size / sizeof(field_storage_info);
     readValues(field_info, fieldInfoLength);
 
 
     int palleteDataRead = 0;
-    if (header->pallet_data_size > 0) {
-        palleteDataArray.resize(header->field_count);
-        for (int i = 0; i < header->field_count; i++) {
+    if (headerContent->pallet_data_size > 0) {
+        palleteDataArray.resize(headerContent->field_count);
+        for (int i = 0; i < headerContent->field_count; i++) {
             if ((field_info[i].storage_type == field_compression::field_compression_bitpacked_indexed) ||
                 (field_info[i].storage_type == field_compression::field_compression_bitpacked_indexed_array)) {
 
@@ -56,14 +59,14 @@ void DB2Ver3::process(HFileContent db2File, const std::string &fileName) {
         }
     }
 
-    assert(palleteDataRead*4 == header->pallet_data_size);
+    assert(palleteDataRead*4 == headerContent->pallet_data_size);
 
-//    readValues(pallet_data, header->pallet_data_size);
+//    readValues(pallet_data, headerContent->pallet_data_size);
     //Form hashtable for column
 
-    if (header->common_data_size > 0) {
-        commonDataHashMap.resize(header->field_count);
-        for (int i = 0; i < header->field_count; i++) {
+    if (headerContent->common_data_size > 0) {
+        commonDataHashMap.resize(headerContent->field_count);
+        for (int i = 0; i < headerContent->field_count; i++) {
             if (field_info[i].storage_type == field_compression::field_compression_common_data) {
                 int id;
                 uint32_t value;
@@ -79,9 +82,9 @@ void DB2Ver3::process(HFileContent db2File, const std::string &fileName) {
 //    readValues(common_data, );
 
     //Read section
-    sections.resize(header->section_count);
+    sections.resize(headerContent->section_count);
 
-    for (int i = 0; i < header->section_count; i++) {
+    for (int i = 0; i < headerContent->section_count; i++) {
         auto &itemSectionHeader = section_headers[i];
 
         section &section = sections[i];
@@ -90,12 +93,12 @@ void DB2Ver3::process(HFileContent db2File, const std::string &fileName) {
 
         assert(itemSectionHeader.file_offset == currentOffset);
 
-        if (!header->flags.isSparse) {
+        if (!headerContent->flags.isSparse) {
             // Normal records
 
             for (int j = 0; j < itemSectionHeader.record_count; j++) {
                 record_data recordData;
-                readValues(recordData.data, header->record_size);
+                readValues(recordData.data, headerContent->record_size);
 
                 section.records.push_back(recordData);
             }
@@ -117,7 +120,7 @@ void DB2Ver3::process(HFileContent db2File, const std::string &fileName) {
             readValues(section.copy_table, itemSectionHeader.copy_table_count);
         }
 
-        if (header->table_hash == 145293629)
+        if (headerContent->table_hash == 145293629)
             currentOffset+=itemSectionHeader.offset_map_id_count*4;
 
         readValues(section.offset_map, itemSectionHeader.offset_map_id_count);
@@ -148,7 +151,7 @@ void DB2Ver3::process(HFileContent db2File, const std::string &fileName) {
         if (itemSectionHeader.tact_key_hash != 0)
         {
             //Check if section was decrypted properly
-            if (!header->flags.isSparse) {
+            if (!headerContent->flags.isSparse) {
                 section.isEncoded = checkDataIfNonZero(section.records[0].data, currentOffset - itemSectionHeader.file_offset);
             }
             else {
@@ -270,7 +273,7 @@ std::shared_ptr<DB2Ver3::WDC3Record> DB2Ver3::getRecord(const int recordIndex) {
     if (recordId == 0) {
         //Some sections have id_list, but have 0 as an entry there for the record.
         //That's when we need calc recordId this way
-        recordId = header->min_id+recordIndex;
+        recordId = headerContent->min_id + recordIndex;
     }
 
     unsigned char *recordPointer = sectionContent.records[indexWithinSection].data;
@@ -347,7 +350,7 @@ void DB2Ver3::guessFieldSizeForCommon(int fieldSizeBits, int &elementSizeBytes, 
 
 std::string DB2Ver3::getLayoutHash() {
     std::stringstream res;
-    res << std::setfill('0') << std::setw(8) << std::hex << header->layout_hash ;
+    res << std::setfill('0') << std::setw(8) << std::hex << headerContent->layout_hash ;
     std::string resStr = res.str();
     std::locale locale;
     auto to_upper = [&locale] (char ch) { return std::use_facet<std::ctype<char>>(locale).toupper(ch); };
@@ -357,11 +360,11 @@ std::string DB2Ver3::getLayoutHash() {
     return resStr;
 }
 
-int DB2Ver3::isSparse() { return header->flags.isSparse; }
+int DB2Ver3::isSparse() { return headerContent->flags.isSparse; }
 
 const field_storage_info * const DB2Ver3::getFieldInfo(uint32_t fieldIndex) const {
-    if (fieldIndex >= header->field_count) {
-        std::cout << "fieldIndex = " << fieldIndex << " is bigger than field count = " << header->field_count << std::endl;
+    if (fieldIndex >= headerContent->field_count) {
+        std::cout << "fieldIndex = " << fieldIndex << " is bigger than field count = " << headerContent->field_count << std::endl;
         return nullptr;
     }
     return &field_info[fieldIndex];
@@ -387,7 +390,7 @@ static inline void fixPaletteValue(WDC3::DB2Ver3::WDCFieldValue &value, int exte
 }
 
 std::vector<WDC3::DB2Ver3::WDCFieldValue> DB2Ver3::WDC3Record::getField(int fieldIndex, int externalArraySize, int externalElemSizeBytes) const {
-    auto const db2Header = db2Class->header;
+    auto const db2Header = db2Class->headerContent;
 
     std::vector<WDC3::DB2Ver3::WDCFieldValue> result = {};
 
@@ -505,9 +508,9 @@ std::vector<WDC3::DB2Ver3::WDCFieldValue> DB2Ver3::WDC3Record::getField(int fiel
 }
 
 std::string DB2Ver3::WDC3Record::readString(int fieldIndex, int fieldElementOffset, int stringOffset) const {
-    const wdc3_db2_header * const db2Header = db2Class->header;
+    const auto * const headerContent = db2Class->headerContent;
 
-    if (fieldIndex >= db2Header->field_count) {
+    if (fieldIndex >= headerContent->field_count) {
         return "!#Invalid field number";
     }
 
@@ -515,11 +518,11 @@ std::string DB2Ver3::WDC3Record::readString(int fieldIndex, int fieldElementOffs
         return ""; //How else would you mark empty string? Only through null offset
 
     uint32_t fieldOffsetIntoGlobalArray =
-            (recordIndex * db2Header->record_size) +
+            (recordIndex * headerContent->record_size) +
             (db2Class->field_info[fieldIndex].field_offset_bits >> 3) + fieldElementOffset;
 
     uint32_t stringOffsetIntoGlobalStringSection =
-            (fieldOffsetIntoGlobalArray + stringOffset) - (db2Header->record_count*db2Header->record_size);
+            (fieldOffsetIntoGlobalArray + stringOffset) - (headerContent->record_count*headerContent->record_size);
 
     int offset = stringOffsetIntoGlobalStringSection; // NOLINT(cppcoreguidelines-narrowing-conversions)
 
@@ -535,7 +538,7 @@ std::string DB2Ver3::WDC3Record::readString(int fieldIndex, int fieldElementOffs
         sectionIndexforStr++;
     }
 
-    if (sectionIndexforStr >= db2Header->section_count) {
+    if (sectionIndexforStr >= headerContent->section_count) {
         return "!#Found invalid section for String, offset = " + std::to_string(offset);
     }
 
@@ -592,7 +595,7 @@ std::string DB2Ver3::WDC3RecordSparse::readNextAsString() {
     std::string result = std::string((char *)&recordPointer[fieldOffset]);
     fieldOffset+=result.length()+1;
 
-    if (fieldOffset > db2Class->header->record_size) {
+    if (fieldOffset > db2Class->headerContent->record_size) {
         return "Reading a field resulted in buffer overflow";
     }
 

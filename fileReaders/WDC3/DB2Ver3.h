@@ -26,8 +26,13 @@ namespace WDC3 {
     };
 
     PACK(
-    struct wdc3_db2_header {
-        uint32_t magic;                  // 'WDC3'
+    struct db2_header {
+        uint32_t magic; // 'WDC3'
+    });
+
+    PACK(
+    struct db2_header_content
+    {
         uint32_t record_count;           // this is for all sections combined now
         uint32_t field_count;
         uint32_t record_size;
@@ -203,7 +208,7 @@ namespace WDC3 {
         std::shared_ptr<WDC3Record> getRecord(int recordIndex);
         std::shared_ptr<WDC3RecordSparse> getSparseRecord(int recordIndex);
 
-        int getRecordCount() { return header->record_count; };
+        int getRecordCount() { return headerContent->record_count; };
         int isSparse();
         bool hasRelationshipField() { return hasRelationShipField; };
 
@@ -215,8 +220,8 @@ namespace WDC3 {
 
         const field_storage_info * const getFieldInfo(uint32_t fieldIndex) const;
 
-        const WDC3::wdc3_db2_header* const getWDCHeader() {
-            return this->header;
+        const auto* const getWDCHeader() {
+            return this->headerContent;
         }
 
         union WDCFieldValue {
@@ -303,7 +308,7 @@ namespace WDC3 {
         }
 
 //fields
-        wdc3_db2_header *header;
+        db2_header_content *headerContent;
         wdc3_section_header *section_headers;
         field_structure *fields;
         field_storage_info *field_info;

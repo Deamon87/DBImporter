@@ -10,9 +10,9 @@
 #include <cstring>
 #include <cmath>
 #include <iomanip>
-#include "DB2Ver4.h"
+#include "DB2Ver5.h"
 
-using namespace WDC4;
+using namespace WDC5;
 
 static const inline bool checkDataIfNonZero(unsigned char *ptr, int length) {
     for (int i = 0; i < length; i++) {
@@ -23,7 +23,7 @@ static const inline bool checkDataIfNonZero(unsigned char *ptr, int length) {
     return true;
 }
 
-void DB2Ver4::process(HFileContent db2File, const std::string &fileName) {
+void DB2Ver5::process(HFileContent db2File, const std::string &fileName) {
     this->db2File = db2File;
     this->db2FileName = fileName;
     fileData = &(*this->db2File.get())[0];
@@ -31,9 +31,8 @@ void DB2Ver4::process(HFileContent db2File, const std::string &fileName) {
     currentOffset = 0;
     bytesRead = 0;
 
-    WDC3::db2_header header;
+    WDC5::db2_header header;
     readValue(header);
-
     readValue(headerContent);
 
     readValues(section_headers, headerContent->section_count);
