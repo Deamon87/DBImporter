@@ -379,10 +379,14 @@ DB2Ver3::WDC3Record::WDC3Record(std::shared_ptr<DB2Ver3 const> db2Class, int rec
                                 db2Class(db2Class), recordId(recordId), recordIndex(recordIndex),
                                 recordPointer(recordPointer), sectionIndex(sectionIndex)
 {
+    if (!db2Class->getWDCHeader()->flags.hasNonInlineId) {
+        auto result = getField(db2Class->getWDCHeader()->id_index, 0, 0);
+        this->recordId = result[0].v32s;
+    }
 
 }
 
-static inline void fixPaletteValue(WDC3::DB2Ver3::WDCFieldValue &value, int externalElemSizeBytes) {
+static inline void fixPaletteOrCommonValue(WDC3::DB2Ver3::WDCFieldValue &value, int externalElemSizeBytes) {
     if (externalElemSizeBytes > 0 && externalElemSizeBytes < 4) {
         uint32_t mask = (1 << (externalElemSizeBytes*8)) - 1;
         value.v32 = value.v32 & mask;
@@ -462,6 +466,7 @@ std::vector<WDC3::DB2Ver3::WDCFieldValue> DB2Ver3::WDC3Record::getField(int fiel
                 auto it = db2Class->commonDataHashMap[fieldIndex].find(recordId);
                 if (it != db2Class->commonDataHashMap[fieldIndex].end()) {
                     fieldValue.v32 = it->second;
+                    fixPaletteOrCommonValue(fieldValue, externalElemSizeBytes);
                 }
             }
             break;
@@ -487,7 +492,7 @@ std::vector<WDC3::DB2Ver3::WDCFieldValue> DB2Ver3::WDC3Record::getField(int fiel
 
                     auto &fieldValue = result.emplace_back();
                     fieldValue.v32 = db2Class->palleteDataArray[fieldIndex][properPalleteIndex];;
-                    fixPaletteValue(fieldValue, externalElemSizeBytes);
+                    fixPaletteOrCommonValue(fieldValue, externalElemSizeBytes);
                 }
             } else {
                 int properPalleteIndex = palleteIndex;
@@ -495,10 +500,8 @@ std::vector<WDC3::DB2Ver3::WDCFieldValue> DB2Ver3::WDC3Record::getField(int fiel
 
                 auto &fieldValue = result.emplace_back();
                 fieldValue.v32 = db2Class->palleteDataArray[fieldIndex][properPalleteIndex];
-                fixPaletteValue(fieldValue, externalElemSizeBytes);
+                fixPaletteOrCommonValue(fieldValue, externalElemSizeBytes);
             }
-
-
 
             break;
         }

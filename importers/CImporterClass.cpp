@@ -8,6 +8,7 @@
 #include "../fileReaders/WDC3/DB2Ver3.h"
 #include "WDC3/WDC3Importer.h"
 #include "../fileReaders/WDC4/DB2Ver4.h"
+#include "../fileReaders/WDC5/DB2Ver5.h"
 
 #include <fstream>
 #include <iostream>
@@ -39,13 +40,15 @@ void CImporterClass::addTable(std::string &tableName,
     }
 
     const uint32_t fileIdent = *(uint32_t *)vec->data();
-    if (fileIdent == 'WDC2') {
+    if (fileIdent == '2CDW') {
         WDC2::DB2Base db2Base;
         db2Base.process(vec, db2File);
     } else if (fileIdent == '3CDW' || fileIdent == '4CDW' || fileIdent == '5CDW') {
         std::shared_ptr<WDC3::DB2Ver3> db2Base = nullptr;
 
-        if (*(uint32_t *)vec->data() == '4CDW') {
+        if (*(uint32_t *)vec->data() == '5CDW') {
+            db2Base = std::make_shared<WDC5::DB2Ver5>();
+        } else  if (*(uint32_t *)vec->data() == '4CDW') {
             db2Base = std::make_shared<WDC4::DB2Ver4>();
         } else {
             db2Base = std::make_shared<WDC3::DB2Ver3>();

@@ -159,7 +159,7 @@ WDC3Importer::generateFieldsFromDB2Columns(std::shared_ptr<WDC3::DB2Ver3> db2Bas
         } else {
             std::string columnName = "field_" + std::to_string(i);
             bool isId = false;
-            if (i == db2Base->getWDCHeader()->id_index && !db2Base->getWDCHeader()->flags.hasNonInlineId) {
+            if (db2Base->isFieldId(i)) {
                 columnName = "id";
                 isId = true;
             }
@@ -328,15 +328,15 @@ bool WDC3Importer::readWDC3Record(const int recordIndex,
                         case FieldType::INT: {
                             if (dbdBuildColumnDef->bitSize == 64) {
                                 if (dbdBuildColumnDef->isSigned) {
-                                    fieldValues[db2FieldIndexToSQLIndex[i] + j] = std::to_string(valueVector[j].v64);
-                                } else {
                                     fieldValues[db2FieldIndexToSQLIndex[i] + j] = std::to_string(valueVector[j].v64s);
+                                } else {
+                                    fieldValues[db2FieldIndexToSQLIndex[i] + j] = std::to_string(valueVector[j].v64);
                                 }
                             } else {
                                 if (dbdBuildColumnDef->isSigned) {
-                                    fieldValues[db2FieldIndexToSQLIndex[i] + j] = std::to_string(valueVector[j].v32);
-                                } else {
                                     fieldValues[db2FieldIndexToSQLIndex[i] + j] = std::to_string(valueVector[j].v32s);
+                                } else {
+                                    fieldValues[db2FieldIndexToSQLIndex[i] + j] = std::to_string(valueVector[j].v32);
                                 }
                             }
                             break;

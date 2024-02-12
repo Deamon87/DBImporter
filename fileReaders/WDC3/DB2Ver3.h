@@ -220,9 +220,15 @@ namespace WDC3 {
 
         const field_storage_info * const getFieldInfo(uint32_t fieldIndex) const;
 
-        const auto* const getWDCHeader() {
+        const auto* const getWDCHeader() const {
             return this->headerContent;
         }
+
+        bool isFieldId(int fieldIndex) const {
+            return (this->getWDCHeader()->id_index == fieldIndex) && !this->getWDCHeader()->flags.hasNonInlineId;
+        }
+
+
 
         union WDCFieldValue {
             uint64_t v64;

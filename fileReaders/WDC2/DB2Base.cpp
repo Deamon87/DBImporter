@@ -17,7 +17,7 @@ void DB2Base::process(HFileContent db2File, const std::string &fileName) {
     bytesRead = 0;
 
     readValue(header);
-    if (header->magic != 'WDC2') return;
+    if (header->magic != '2CDW') return;
 
     readValues(section_headers, header->section_count);
     readValues(fields, header->total_field_count);
