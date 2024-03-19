@@ -79,7 +79,6 @@ void DB2Ver3::process(HFileContent db2File, const std::string &fileName) {
             }
         }
     }
-//    readValues(common_data, );
 
     //Read section
     sections.resize(headerContent->section_count);
@@ -292,7 +291,12 @@ std::shared_ptr<DB2Ver3::WDC3RecordSparse> DB2Ver3::getSparseRecord(int recordIn
     auto &sectionContent = sections[sectionIndex];
     auto &sectionHeader = section_headers[sectionIndex];
 
-    int recordId = sectionContent.offset_map_id_list[indexWithinSection];
+    bool useOffsetMapId = (this->headerContent->flags.flag0x2 == 0) && sectionHeader.offset_map_id_count > 0;
+
+    int recordId = useOffsetMapId ?
+        sectionContent.offset_map_id_list[indexWithinSection] :
+        sectionContent.id_list[indexWithinSection];
+
     unsigned char *recordPointer =
           sectionContent.variable_record_data
         + sectionContent.offset_map[indexWithinSection].offset
@@ -380,7 +384,7 @@ DB2Ver3::WDC3Record::WDC3Record(std::shared_ptr<DB2Ver3 const> db2Class, int rec
                                 recordPointer(recordPointer), sectionIndex(sectionIndex)
 {
     if (!db2Class->getWDCHeader()->flags.hasNonInlineId) {
-        auto result = getField(db2Class->getWDCHeader()->id_index, 0, 0);
+        auto result = getField(db2Class->getWDCHeader()->id_index, -1, -1);
         this->recordId = result[0].v32s;
     }
 
