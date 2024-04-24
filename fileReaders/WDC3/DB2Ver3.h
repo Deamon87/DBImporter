@@ -235,6 +235,8 @@ namespace WDC3 {
             int64_t v64s;
             uint32_t v32;
             int32_t v32s;
+            uint16_t v16;
+            int16_t v16s;
             float v_f;
         };
     protected:

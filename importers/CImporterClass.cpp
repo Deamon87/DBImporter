@@ -30,6 +30,7 @@ void CImporterClass::addTable(std::string &tableName,
         fileSize = cache_file.tellg();
         cache_file.seekg(0, std::ios::beg);
 
+//        std::cout << "DB2 File opened " << "lol" << std::endl;
 
         vec = std::make_shared<FileContent>(fileSize);
         cache_file.read((char *) &(*vec.get())[0], fileSize);

@@ -332,6 +332,12 @@ bool WDC3Importer::readWDC3Record(const int recordIndex,
                                 } else {
                                     fieldValues[db2FieldIndexToSQLIndex[i] + j] = std::to_string(valueVector[j].v64);
                                 }
+                            } else if (dbdBuildColumnDef->bitSize == 16) {
+                                if (dbdBuildColumnDef->isSigned) {
+                                    fieldValues[db2FieldIndexToSQLIndex[i] + j] = std::to_string(valueVector[j].v16s);
+                                } else {
+                                    fieldValues[db2FieldIndexToSQLIndex[i] + j] = std::to_string(valueVector[j].v16);
+                                }
                             } else {
                                 if (dbdBuildColumnDef->isSigned) {
                                     fieldValues[db2FieldIndexToSQLIndex[i] + j] = std::to_string(valueVector[j].v32s);
